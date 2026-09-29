@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
+# Data and generated artifacts
+data/raw/
+data/interim/
+data/processed/
+data/evaluation/
+artifacts/
+*.duckdb
+*.parquet
+*.pcap
+*.pcapng
+
+# Honeypot-sensitive output
+**/cowrie.json
+**/downloads/
+**/tty/

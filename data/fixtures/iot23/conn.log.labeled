@@ -1,0 +1,12 @@
+#separator \x09
+#set_separator ,
+#empty_field (empty)
+#unset_field -
+#path conn
+#open 2026-09-20-00-00-00
+#fields ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	service	duration	orig_bytes	resp_bytes	conn_state	local_orig	local_resp	missed_bytes	history	orig_pkts	orig_ip_bytes	resp_pkts	resp_ip_bytes	tunnel_parents	label	detailed-label
+#types time	string	addr	port	addr	port	enum	string	interval	count	count	string	bool	bool	count	string	count	count	count	count	set[string]	string	string
+1608565768.123	C34FIX001	192.0.2.10	50123	198.51.100.20	443	tcp	ssl	1.25	100	200	SF	T	F	0	S3	2	180	3	320	-	Benign	Benign
+1608565769.500	C34FIX002	192.0.2.11	40000	198.51.100.21	23	tcp	telnet	2.0	300	50	SF	T	F	0	ShAD	5	500	4	200	-	Malicious	C&C
+1608565770.000	C34FIX003	192.0.2.12	40001	198.51.100.22	23	tcp	(empty)	-	-	-	S0	T	F	0	S	1	40	0	0	-	-	-
+#close 2026-09-20-00-00-03

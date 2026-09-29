@@ -1,0 +1,5 @@
+StartTime,Dur,Proto,SrcAddr,Sport,Dir,DstAddr,Dport,State,sTos,dTos,TotPkts,TotBytes,SrcBytes,Label
+2011/08/18 15:39:35.087798,1.25,tcp,192.0.2.10,1234, ->,198.51.100.10,80,PA_PA,0,0,10,1000,600,flow=From-Botnet-V52-1-TCP
+2011/08/18 15:40:35.000000,0.50,udp,192.0.2.20,5555, <>,198.51.100.20,53,CON,0,,4,400,200,flow=From-Normal-V52-Grill
+2011/08/18 15:41:35.000000,2.00,tcp,192.0.2.30,443, <?>,198.51.100.30,5000,SF,0,0,8,800,400,flow=Background
+2011/08/18 15:42:35.000000,0.00,icmp,192.0.2.40,-, ->,198.51.100.40,-,ECO,-,-,1,84,84,flow=To-Botnet-V52-1-ICMP

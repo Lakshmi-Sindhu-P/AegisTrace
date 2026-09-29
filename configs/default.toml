@@ -1,0 +1,6 @@
+[runtime]
+environment = "development"
+log_level = "INFO"
+
+[storage]
+root_dir = "data"

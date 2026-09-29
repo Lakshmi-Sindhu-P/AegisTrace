@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "source": {
+    "source_type": "synthetic",
+    "source_dataset": "phase1-contract-fixtures",
+    "dataset_version": "1.0.0",
+    "source_event_id": "network-event-001",
+    "raw_payload_reference": "data/fixtures/events/synthetic_network_event.json",
+    "raw_checksum": null
+  },
+  "observed_at": "2026-09-20T12:00:00Z",
+  "ingested_at": "2026-09-20T12:00:01Z",
+  "event_type": "network_connection",
+  "session_id": "fixture-session-001",
+  "details": {
+    "kind": "network",
+    "src_ip": "192.0.2.10",
+    "dst_ip": "198.51.100.20",
+    "src_port": 50123,
+    "dst_port": 443,
+    "protocol": "tcp",
+    "network_bytes": 1024,
+    "packet_count": 12,
+    "session_duration_seconds": 1.25
+  },
+  "ground_truth_label": "benign",
+  "label_source": "synthetic_fixture_intent",
+  "attack_category": null,
+  "provenance": {
+    "adapter_name": "synthetic_fixture_adapter",
+    "adapter_version": "1.0.0",
+    "transformation_version": "1.0.0",
+    "processed_at": "2026-09-20T12:00:01Z",
+    "quality_flags": []
+  }
+}

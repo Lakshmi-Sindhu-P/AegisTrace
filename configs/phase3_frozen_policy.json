@@ -1,0 +1,48 @@
+{
+  "calibration": "none",
+  "class_weight": "balanced",
+  "code_versions": {
+    "behavioral_feature_builder": "1.1.0",
+    "environment_lock": "uv.lock",
+    "hardening_runner": "1.0.0",
+    "metrics_schema": "1.0.0"
+  },
+  "dataset_checksums": {
+    "CTU-Malware-Capture-Botnet-46": "ef5c9ed6895d4ca5aec723449dae30054ccd1f6b091713a52ffcb681ff78a02c",
+    "CTU-Malware-Capture-Botnet-47": "801800eeda9a5a44868b1e3e492f93dc6d52b5d14566c1d8431c9e85d0d2adaa",
+    "CTU-Malware-Capture-Botnet-52": "cee542d4b5efe4fa1cd59b87ece5aaea9a13d8f0abe56cd07cee31590736428c",
+    "CTU-Malware-Capture-Botnet-53": "1098f0addacedc321c7baefad63ef0d9a0f26630d0155087d37e8da770dd9f2e"
+  },
+  "feature_family": "behavioral_ctu13_prior_window",
+  "feature_version": "1.1.0",
+  "frozen_at": "2026-09-21T16:15:00Z",
+  "hyperparameters": {
+    "max_depth": 12,
+    "n_estimators": 200,
+    "n_jobs": 1
+  },
+  "model": "random_forest",
+  "policy_id": "aegistrace-phase3-behavioral-rf-validation-frozen-v1",
+  "preprocessing": "none",
+  "random_seed": 42,
+  "rule_configuration": {
+    "detector_version": "1.0.0",
+    "high_volume_bytes": 10000000,
+    "icmp_burst_packets": 100,
+    "long_lived_bytes": 1000000,
+    "long_lived_seconds": 300.0
+  },
+  "scope": "validation-selected policy; do not tune after reopening sealed Scenario 7",
+  "sealed_scenario": "CTU-Malware-Capture-Botnet-48",
+  "status": "FROZEN_VALIDATION_POLICY",
+  "threshold": 0.2,
+  "threshold_selection_rationale": "0.20 selected after validation-only workload review: compared with 0.15 it gives nearly identical F1, higher precision, and fewer alerts; it is not selected from the sealed test.",
+  "training_scenarios": [
+    "CTU-Malware-Capture-Botnet-52",
+    "CTU-Malware-Capture-Botnet-47"
+  ],
+  "validation_scenarios": [
+    "CTU-Malware-Capture-Botnet-46",
+    "CTU-Malware-Capture-Botnet-53"
+  ]
+}
