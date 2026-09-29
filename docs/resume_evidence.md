@@ -19,6 +19,7 @@ This file governs portfolio and resume claims. Update it only from repository ev
 - Implemented a validation-only model-family benchmark runner covering retained rules, Logistic Regression, shallow Decision Tree, Random Forest, Extra Trees, HistGradientBoosting, a practical linear SVM, and a separately reported Isolation Forest anomaly experiment, with explicit Scenario 7 rejection and per-case disagreement output.
 - Implemented a cached, validation-only cross-scenario stability runner for Random Forest, HistGradientBoosting, Linear SVM, and retained rules. It records model-specific score semantics, validation-derived operating thresholds, per-scenario metrics/alert volumes, SVM unique-case analysis, and all-model residual errors without opening sealed Scenario 7.
 - Implemented a validation-only causal representation runner and artifact-reconciliation tools for Issue #2. They preserve the same RF/HGB/SVM families, score semantics, scenario boundaries, workload policy, provenance, and sealed-Scenario-7 guard.
+- Implemented a bounded Issue #3 overlap-subgroup diagnostic that reconciles frozen `1.1.0` and `1.2.0` RF/SVM case records, verifies unchanged common features, summarizes causal feature distributions by scenario, and records a sealed-Scenario-7 guard and input checksums.
 
 These are bounded ingestion and detection-foundation accomplishments, not a production security-detection platform.
 
@@ -34,6 +35,7 @@ These are bounded ingestion and detection-foundation accomplishments, not a prod
 - The post-amendment model-family benchmark reproduced the four-scenario training/validation boundary and recorded model parameters, checksums, metrics, alert volume, fit runtime, per-scenario stability, and malicious-case disagreement in `data/evaluation/phase3_model_family/benchmark_summary.json`. This validates the experiment implementation and exploratory validation result, not a final detector or operational capability.
 - The cross-scenario stability pass reproduced four validation scenarios with licensed source checksums and behavioral feature version `1.1.0` in `data/evaluation/phase3_model_stability/stability_summary.json`. Under a validation-only precision/workload policy, Random Forest was the strongest compliant standalone result; HGB's higher PR-AUC had no feasible operating point; SVM's unique coverage was unstable. This validates methodology and bounded validation evidence, not operational effectiveness.
 - Issue #2 reproduced the same four validation scenarios with causal feature version `1.2.0`. All-three residual malicious cases fell from 68,353 to 64,986 (4.9%) through lower RF/SVM overlap, but no individual constrained operating point improved; the gain is dominated by Scenario 10/51 and does not justify fusion or a new model family. The corrected HGB-derived disagreement artifact and quantile-loop repair are recorded in the stability/causal artifacts.
+- Issue #3 validated that the 3,367-case union change is concentrated in a Scenario 10/51 high-rate, repeated-short, low-destination-diversity subgroup (10,234 candidate-only cases), while 55,385 cases remain missed by both RF/SVM unions there. The evidence supports only a localized representation hypothesis, not causal proof, feature-policy promotion, fusion, or a new model family.
 
 This validates the implemented software contracts and utilities only. It is not security-detection or research-result validation.
 
@@ -49,7 +51,7 @@ This validates the implemented software contracts and utilities only. It is not 
   vetted references, independent AI review, tiered human review, and non-destructive recommendations.
 - Authorized real IoT-23 Capture 34-1 ingestion and Cowrie adapter.
 - Parquet/DuckDB normalized storage.
-- A narrower scenario-held-out audit of the Scenario 10/51 residual subgroup before any final-policy or Scenario 7 decision.
+- A scenario-held-out check of the localized burst-density hypothesis before any final-policy or Scenario 7 decision, or deterministic finding aggregation if the check is not justified by available data.
 - Deterministic alert aggregation into provenance-preserving investigation findings.
 - Verification labels, vetted reference retrieval, and a deterministic AI agreement/conflict engine.
 - Independent LLM A triage and LLM B adjudication, followed by tiered human review and reviewer-training mode.

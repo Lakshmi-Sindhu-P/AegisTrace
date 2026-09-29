@@ -304,3 +304,25 @@ representation hypothesis.
 During this pass, a stale-reference defect was corrected: the earlier HGB zero-alert correction
 had not propagated to disagreement/residual sections. The repaired artifact records the provenance
 of this correction; the quantile helper now avoids repeated O(n) sorting inside residual-row loops.
+
+## Causal-overlap subgroup diagnosis
+
+Issue #3 follows the representation result without refitting or opening Scenario 7. The read-only
+`scripts/analyze_phase3_causal_overlap.py` audit compares the corrected `1.1.0` stability case
+records with `1.2.0` causal case records and verifies that all common feature values are unchanged.
+It classifies 112,001 authoritative malicious validation cases by the RF/SVM union at each frozen
+operating point, then summarizes prior-only causal features by category and validation capture.
+
+The categories are `causal_only` (10,564), `reference_only` (7,197), `both_residual` (57,789),
+and `both_union` (36,451). The net gain of 3,367 union-covered cases is concentrated in capture 51
+(Scenario 10), where candidate-only cases have median 60-second source and repeated-short counts
+of 6,106 versus 2,777 in the unchanged residual group, while both groups have median one unique
+destination and one protocol. The bounded interpretation is a localized burst-density hypothesis,
+not a causal proof: large high-rate residuals remain, and capture 53 has a different diversity
+profile. The result does not promote `1.2.0`, justify fusion, or justify a new model family.
+
+The full category counts, transition matrix, feature summaries, input checksums, and sealed-scenario
+guard are in `data/evaluation/phase3_causal_overlap/overlap_summary.json`; the diagnostic report is
+[phase3_causal_overlap.md](phase3_causal_overlap.md). Any follow-up must test this narrower
+hypothesis with a scenario-held-out non-sealed capture or move to deterministic finding aggregation;
+Scenario 7 remains sealed.

@@ -129,6 +129,24 @@ recomputes those sections from recorded case IDs and non-sealed feature artifact
 quantile helper now computes each reference quantile once. This repair is recorded as an artifact
 provenance entry rather than treated as a new model result.
 
+### Causal-overlap subgroup diagnosis
+
+Issue #3 adds a read-only diagnostic rather than another detector. It joins the corrected `1.1.0`
+and `1.2.0` malicious validation case records by deterministic event ID, verifies that the common
+feature values are unchanged, and classifies each case by the RF/SVM union at each version:
+candidate-only, reference-only, residual in both, or covered by both. HGB is not used for the
+overlap categories because its declared operating point is the zero-alert fallback. The diagnostic
+then summarizes prior-only host/time values by category and scenario; labels are used only to select
+authoritative malicious cases for error analysis and never enter a model matrix.
+
+The predeclared narrow hypothesis is that the Scenario 10/51 overlap change is a high-rate,
+repeated-short, low-destination-diversity subgroup. It is marked supported only when the
+candidate-only median 60-second connection and repeated-short counts are at least 1.5 times the
+unchanged residual median, the destination-diversity ratio is at most 1.25, and at least 100
+candidate-only cases are present. These thresholds are diagnostic criteria, not a new operating
+policy. A local support result cannot establish causality or justify feature promotion; it must be
+checked on a future scenario-held-out non-sealed capture.
+
 Detailed metrics and split rules are in [evaluation.md](evaluation.md).
 
 ## Staged model-family and fusion methodology

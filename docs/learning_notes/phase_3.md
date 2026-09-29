@@ -59,6 +59,21 @@ zero-alert fallback, the old disagreement and residual sections still described 
 threshold. Derived evidence must be regenerated whenever a policy changes; otherwise two parts of
 one report silently describe different detectors.
 
+### Diagnosing representation changes without overclaiming
+
+Issue #3 adds a useful diagnostic habit: compare the individual malicious cases that changed, not
+only the pooled residual count. A `causal_only` case is missed by the old RF/SVM union but caught by
+the new representation; a `both_residual` case is missed by both. In this run, the new representation
+changed overlap mainly for a Scenario 10/51 slice with very high prior source-connection and
+repeated-short counts, one recent destination, and one protocol. The unchanged residuals still
+contain many high-rate flows, so the feature family explains only part of the behavior.
+
+This is descriptive evidence, not causal proof. A subgroup can be a property of one capture's
+collection conditions rather than a transferable attacker behavior. The correct next step is a
+scenario-held-out check of the narrow burst-density hypothesis under the same policy, or a move to
+deterministic finding aggregation if more detector complexity is not justified. A lower pooled
+residual alone is not a reason to promote a representation or add fusion.
+
 ## Precision and recall
 
 For known labels, precision asks: “Of the flows predicted malicious, how many were malicious?”

@@ -1,6 +1,7 @@
 # AegisTrace Staged Roadmap
 
-**Status:** Revised 2026-09-29 after the causal representation study and stability-artifact repair.
+**Status:** Revised 2026-09-29 after the causal representation study, stability-artifact repair,
+and Issue #3 overlap-subgroup diagnosis.
 Scenario 7 remains sealed. This roadmap distinguishes repository evidence from approved future
 intent; a design entry is not an implementation claim.
 
@@ -13,7 +14,7 @@ intent; a design entry is not an implementation claim.
 | Phase 2 — ingestion foundations | `VALIDATED` | IoT-23 Zeek adapter is fixture-validated; CTU-13 Argus adapter has checksum-backed Scenario 11 validation and typed Parquet/quality artifacts. Official IoT-23 Capture 34-1 remains authorization-gated. |
 | Phase 3A/B — features and deterministic rules | `VALIDATED` | Feature versions `1.0.0` and behavioral `1.1.0`; three evidence-traceable rules; labels and scenario metadata excluded from model matrices. |
 | Phase 3C — supervised baseline, improvement, hardening | `VALIDATED` / `PROTOTYPE` | Logistic Regression and balanced Random Forest experiments use Scenarios 11/47 for training and 5/53 for validation. The frozen validation policy is ready for one controlled final measurement; Scenario 7 has not been reopened. |
-| Phase 3D — model-family, stability, and representation studies | `VALIDATED` / `PROTOTYPE` | The model-family benchmark, corrected four-scenario RF/HGB/SVM operating-point pass, and causal `1.2.0` representation study are complete. RF remains the strongest compliant standalone result; HGB has ranking value but no workload-compliant point; causal context modestly improves union coverage without improving any single operating point. Scenario 7 remains sealed. |
+| Phase 3D — model-family, stability, and representation studies | `VALIDATED` / `PROTOTYPE` | The model-family benchmark, corrected four-scenario RF/HGB/SVM operating-point pass, causal `1.2.0` representation study, and bounded Issue #3 overlap-subgroup diagnosis are complete. RF remains the strongest compliant standalone result; HGB has ranking value but no workload-compliant point; causal context modestly improves union coverage without improving any single operating point. Scenario 7 remains sealed. |
 
 ## Post-amendment sequence and current gate
 
@@ -34,9 +35,14 @@ These experiments use training and validation data only. They must not open Scen
 7. **Representation study.** Completed as feature version `1.2.0`. It reduced all-three residuals
    by 4.9% through lower RF/SVM overlap, but no individual operating point improved and the gain
    was dominated by Scenario 10/51. Do not promote it to a frozen policy or reopen Scenario 7.
-8. **Finding aggregation and verification.** Remain the next architectural steps after the residual
-   subgroup receives one narrower scenario-held-out representation audit; preserve every source
-   event and detector ID.
+8. **Residual-overlap diagnosis.** Completed as Issue #3 without refitting or opening Scenario 7.
+   The Scenario 10/51 gain is localized to a high-rate, repeated-short, low-destination-diversity
+   subgroup, while substantial similarly shaped residuals remain. The hypothesis is not a policy
+   promotion or causal proof.
+9. **Next gate.** Either test this narrow burst-density hypothesis on a scenario-held-out,
+   non-sealed capture with the frozen operating policy, or stop detector expansion and begin
+   deterministic finding aggregation. Do not promote `1.2.0`, add fusion, or add a model family
+   without new evidence.
 
 The completed benchmark does not alter the frozen policy or open Scenario 7. Before any final-test
 run, freeze the detector/fusion policy, feature and rule versions, aggregation version, thresholds,
