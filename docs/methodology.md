@@ -106,6 +106,29 @@ recorded in `configs/phase3_frozen_policy.json`; the full hardening evidence is 
 `data/evaluation/phase3_hardening/hardening_summary.json` artifact. A final held-out execution must
 use that policy exactly once, with no post-test tuning.
 
+### Causal representation follow-up
+
+Issue #2 adds a separate `FEATURE_VERSION=1.2.0` representation study. It composes the validated
+`1.1.0` behavioral vector with prior-only host/time values at 60- and 300-second windows: slower
+source activity, short-window diversity, destination/port reuse, protocol diversity, prior
+bytes/packets, and source-flow recency. The implementation rejects mixed-scenario input and audits
+that appending a future event cannot change earlier vectors. Raw addresses are aggregation keys only;
+labels, filenames, scenario IDs, and source labels remain outside model matrices.
+
+The study refits only the retained RF, HGB, and Linear SVM over the existing complete-capture split
+(Scenarios 11/47 train; 5/12/4/10 validation), with the same seed, parameters, score semantics,
+precision/workload operating policy, and unknown-label treatment. It reports per-scenario metrics,
+PR-AUC, alert volume, disagreement, and residual cases in the ignored
+`data/evaluation/phase3_causal_representation/causal_summary.json`. Scenario 7 remains sealed.
+The extension is not promoted to a final detector policy unless a later scenario-held-out study
+shows stable operational value.
+
+The prior stability artifact also had a derived-evidence defect: HGB's zero-alert correction was not
+propagated to disagreement/residual sections. `scripts/correct_stability_operating_point.py`
+recomputes those sections from recorded case IDs and non-sealed feature artifacts, and the residual
+quantile helper now computes each reference quantile once. This repair is recorded as an artifact
+provenance entry rather than treated as a new model result.
+
 Detailed metrics and split rules are in [evaluation.md](evaluation.md).
 
 ## Staged model-family and fusion methodology
@@ -162,12 +185,13 @@ constraints; its explicit workload-first fallback produced zero alerts and zero 
 strongest compliant standalone detector (PR-AUC `0.999589`, recall `0.2685` at threshold `0.73`),
 while SVM was compliant but lower-ranking and unstable across scenarios.
 
-SVM uniquely caught 155 malicious validation cases, but only in two of four scenarios (0 in
-Scenarios 4 and 5), so this is not stable complementary coverage. The 3,192 cases missed by all
-three learned models are mostly very short, low-activity, low-diversity mixed-protocol flows. The
-evidence supports a representation-focused temporal/host-context study, not fusion or another model
-family yet. Full per-scenario metrics, alert volumes, subgroup summaries, and residual counts are in
-`docs/phase3_model_stability.md` and the JSON artifact.
+After the HGB zero-alert correction, SVM uniquely caught 13,576 malicious validation cases, but
+only in two of four scenarios (0 in Scenarios 4 and 5), so this is not stable complementary
+coverage. The corrected all-three residual is 68,353 cases, concentrated in Scenario 10/51 and
+dominated by short, low-diversity mixed-protocol flows. The evidence supports the bounded causal
+representation study in `docs/phase3_causal_representation.md`, not fusion or another model family
+yet. Full per-scenario metrics, alert volumes, subgroup summaries, and residual counts are in
+`docs/phase3_model_stability.md`, `docs/phase3_causal_representation.md`, and their JSON artifacts.
 
 ### Post-amendment model-family benchmark result
 

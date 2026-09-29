@@ -12,7 +12,8 @@ The reproducibility artifact is
 `data/evaluation/phase3_model_stability/stability_summary.json`. It records raw
 checksums, immutable behavioral-feature artifacts, feature version `1.1.0`, seed
 42, model parameters, score semantics, threshold trade-offs, per-scenario
-metrics, disagreement cases, and residual analysis.
+metrics, disagreement cases, residual analysis, and the later HGB-derived
+artifact repair provenance.
 
 ## Score and threshold semantics
 
@@ -88,27 +89,27 @@ flows respectively.
 
 ## SVM unique coverage and residual errors
 
-At pooled operating thresholds, SVM uniquely catches 155 malicious cases missed
-by both RF and HGB: 107 in Scenario 10 (0.10% of its malicious rows), 48 in
-Scenario 12 (2.21%), and none in Scenarios 4 or 5. The coverage is therefore not
-stable across scenarios. The unique cases are descriptively enriched for
-short/low-activity behavior (84.5% at or below the pooled malicious first
-quartile for prior source connections), low destination diversity (69.0%), and
-low port diversity (67.1%). Their protocol mix is 69.0% ICMP, 12.9% TCP, and
-18.1% UDP, versus 95.4% ICMP among other malicious rows. This suggests a mixed,
-scenario-dependent subgroup rather than a repeatable SVM specialist.
+After the HGB operating-point correction, SVM uniquely catches 13,576 malicious
+cases missed by RF and HGB: 12,926 in Scenario 10 (12.15%), 650 in Scenario 12
+(29.98%), and none in Scenarios 4 or 5. The coverage remains scenario-dependent.
+The unique cases are descriptively enriched for low prior activity (52.3% at or
+below the pooled malicious first quartile), low destination diversity (95.2%),
+and low port diversity (95.1%). Their protocol mix is 95.2% ICMP, 0.2% TCP, and
+4.6% UDP, so this is not evidence of a stable SVM specialist.
 
-All three learned models miss 3,192 malicious validation cases: 459 in Scenario
-4, 493 in Scenario 5, 1,384 in Scenario 10, and 856 in Scenario 12. The residual
-cases are dominated by very short flows (median duration `0.0003545` seconds),
-low prior activity (median 53.5 prior source connections/60s), low destination
-and port diversity (medians 2 and 1), and mixed TCP/UDP/ICMP traffic. These are
-behavioral representation gaps, not evidence that the flows are benign.
+The corrected reference has 68,353 malicious validation cases missed by all three
+learned models: 614 in Scenario 4, 744 in Scenario 5, 65,619 in Scenario 10,
+and 1,376 in Scenario 12. This differs from the earlier 3,192 headline because
+the earlier artifact mixed HGB's old disagreement threshold with its corrected
+zero-alert operating metrics. The repair is recorded in the artifact's
+`artifact_repair` section. The residual cases are dominated by short flows,
+very high prior host activity, low destination/port diversity, and mixed
+TCP/UDP/ICMP traffic. These are behavioral representation gaps, not evidence
+that the flows are benign.
 
 ## Decision
 
-The pass does not justify fusion: SVM's unique coverage is sparse and unstable,
-and RF/HGB errors are not complementary enough at an acceptable workload. It
-does justify a future representation-focused experiment (richer temporal/host
-sequence context and leakage audit) before any new model family. No fusion,
-temporal model, semi-supervised method, deep learning, or LLM was implemented.
+The pass does not justify fusion: SVM's unique coverage is scenario-dependent,
+and HGB has no workload-compliant operating point. It supports a bounded
+representation audit before any new model family. No fusion, temporal model,
+semi-supervised method, deep learning, or LLM was implemented.

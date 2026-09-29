@@ -286,27 +286,28 @@ def _feature_summary(
             "prior_unique_destination_ports_300s",
         )
     }
+    reference_q25 = {
+        name: _quantile(values, 0.25) for name, values in reference_values.items()
+    }
     low_activity = sum(
         record.values[index["prior_source_connections_60s"]]
-        <= _quantile(reference_values["prior_source_connections_60s"], 0.25)
+        <= reference_q25["prior_source_connections_60s"]
         for record in records
     )
     low_destination_diversity = sum(
         record.values[index["prior_unique_destinations_300s"]]
-        <= _quantile(reference_values["prior_unique_destinations_300s"], 0.25)
+        <= reference_q25["prior_unique_destinations_300s"]
         for record in records
     )
     low_port_diversity = sum(
         record.values[index["prior_unique_destination_ports_300s"]]
-        <= _quantile(reference_values["prior_unique_destination_ports_300s"], 0.25)
+        <= reference_q25["prior_unique_destination_ports_300s"]
         for record in records
     )
     return {
         "count": len(records),
         "features": numeric,
-        "reference_q25": {
-            name: _quantile(values, 0.25) for name, values in reference_values.items()
-        },
+        "reference_q25": reference_q25,
         "fraction_at_or_below_reference_q25": {
             "low_activity": low_activity / len(records),
             "low_destination_diversity": low_destination_diversity / len(records),

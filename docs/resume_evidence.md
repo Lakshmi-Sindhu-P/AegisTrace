@@ -12,11 +12,13 @@ This file governs portfolio and resume claims. Update it only from repository ev
 - Implemented a separate CTU-13 Argus `.binetflow` adapter that preserves scenario identity, source labels, source checksums, source-specific typed fields, and timezone assumptions while emitting canonical events, typed Parquet, a quality report, and a manifest. Phase 3 acquired three labeled text-flow artifacts; no packets or executables were downloaded.
 - Implemented a versioned, leakage-reviewed 26-column CTU-13 flow feature builder with explicit missing indicators and typed feature Parquet output.
 - Implemented a versioned `1.1.0` scenario-local behavioral feature family for prior host connection rate, destination/port diversity, traffic asymmetry, and repeated short connections, with unknown-label context retained but excluded from supervised fitting.
+- Implemented a separate `1.2.0` causal host/time feature family with prior-only 60/300-second source activity, destination/port reuse, protocol diversity, prior volume, and recency; raw addresses remain aggregation keys only and the `1.1.0` contract is unchanged.
 - Implemented three deterministic evidence-traceable flow rules and immutable event-linked detection records that preserve observed values and thresholds.
 - Implemented a validation-only improvement runner that compares per-flow and behavioral features, Logistic Regression and Random Forest class weighting, fixed thresholds, and validation-selected thresholds without a test-split argument.
 - Implemented a pre-final hardening runner with behavioral feature ablation, temporal-causality audit, training-only calibration assessment, alert-volume analysis, a sealed-scenario guard, and a versioned validation policy artifact.
 - Implemented a validation-only model-family benchmark runner covering retained rules, Logistic Regression, shallow Decision Tree, Random Forest, Extra Trees, HistGradientBoosting, a practical linear SVM, and a separately reported Isolation Forest anomaly experiment, with explicit Scenario 7 rejection and per-case disagreement output.
 - Implemented a cached, validation-only cross-scenario stability runner for Random Forest, HistGradientBoosting, Linear SVM, and retained rules. It records model-specific score semantics, validation-derived operating thresholds, per-scenario metrics/alert volumes, SVM unique-case analysis, and all-model residual errors without opening sealed Scenario 7.
+- Implemented a validation-only causal representation runner and artifact-reconciliation tools for Issue #2. They preserve the same RF/HGB/SVM families, score semantics, scenario boundaries, workload policy, provenance, and sealed-Scenario-7 guard.
 
 These are bounded ingestion and detection-foundation accomplishments, not a production security-detection platform.
 
@@ -31,13 +33,14 @@ These are bounded ingestion and detection-foundation accomplishments, not a prod
 - Pre-final hardening passed the future-event causality audit, measured complementary feature-group contributions, assessed calibration, and froze `configs/phase3_frozen_policy.json` at validation threshold 0.20. This is ready for one controlled final measurement but does not establish operational alert quality.
 - The post-amendment model-family benchmark reproduced the four-scenario training/validation boundary and recorded model parameters, checksums, metrics, alert volume, fit runtime, per-scenario stability, and malicious-case disagreement in `data/evaluation/phase3_model_family/benchmark_summary.json`. This validates the experiment implementation and exploratory validation result, not a final detector or operational capability.
 - The cross-scenario stability pass reproduced four validation scenarios with licensed source checksums and behavioral feature version `1.1.0` in `data/evaluation/phase3_model_stability/stability_summary.json`. Under a validation-only precision/workload policy, Random Forest was the strongest compliant standalone result; HGB's higher PR-AUC had no feasible operating point; SVM's unique coverage was unstable. This validates methodology and bounded validation evidence, not operational effectiveness.
+- Issue #2 reproduced the same four validation scenarios with causal feature version `1.2.0`. All-three residual malicious cases fell from 68,353 to 64,986 (4.9%) through lower RF/SVM overlap, but no individual constrained operating point improved; the gain is dominated by Scenario 10/51 and does not justify fusion or a new model family. The corrected HGB-derived disagreement artifact and quantile-loop repair are recorded in the stability/causal artifacts.
 
 This validates the implemented software contracts and utilities only. It is not security-detection or research-result validation.
 
 ## PROTOTYPE
 
 - Logistic Regression and Random Forest supervised baselines plus behavioral-feature variants trained on two CTU-13 scenarios and evaluated on two separate validation scenarios. The improvement is a prototype validation result; the sealed final scenario has not been reopened.
-- The model-family benchmark and stability pass are prototype comparative results: RF is strongest under the declared workload constraint, HGB is a ranking-only result under that constraint, and SVM does not provide stable complementary coverage. The 3,192-case residual points to a temporal/host representation gap. No fusion policy or production detector is claimed.
+- The model-family, stability, and causal-representation passes are prototype comparative results: RF remains strongest under the declared workload constraint, HGB is ranking-only, and causal context modestly improves union coverage without improving a single operating point. The corrected residual is 64,986 validation cases; no fusion policy or production detector is claimed.
 
 ## PLANNED
 
@@ -46,7 +49,7 @@ This validates the implemented software contracts and utilities only. It is not 
   vetted references, independent AI review, tiered human review, and non-destructive recommendations.
 - Authorized real IoT-23 Capture 34-1 ingestion and Cowrie adapter.
 - Parquet/DuckDB normalized storage.
-- Causal temporal/host representation study and any resulting repeat of the sealed validation protocol.
+- A narrower scenario-held-out audit of the Scenario 10/51 residual subgroup before any final-policy or Scenario 7 decision.
 - Deterministic alert aggregation into provenance-preserving investigation findings.
 - Verification labels, vetted reference retrieval, and a deterministic AI agreement/conflict engine.
 - Independent LLM A triage and LLM B adjudication, followed by tiered human review and reviewer-training mode.

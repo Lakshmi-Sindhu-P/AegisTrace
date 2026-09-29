@@ -12,6 +12,12 @@ from aegistrace.features.behavioral import (
     audit_prior_window_causality,
     build_ctu13_behavioral_features,
 )
+from aegistrace.features.causal import (
+    CAUSAL_FEATURE_NAMES,
+    audit_causal_prior_window,
+    build_ctu13_causal_features,
+    write_causal_feature_parquet,
+)
 from aegistrace.features.network import (
     FEATURE_NAMES,
     FeatureDataset,
@@ -149,4 +155,71 @@ def test_behavioral_aggregates_use_prior_host_window_and_write_parquet(tmp_path:
     from aegistrace.features.behavioral import write_behavioral_feature_parquet
 
     write_behavioral_feature_parquet(dataset, output)
+    assert pq.read_table(output).num_rows == 2
+
+
+def test_causal_features_add_prior_reuse_recency_and_long_window(tmp_path: Path) -> None:
+    input_path = tmp_path / "causal.binetflow"
+    header = (
+        "StartTime,Dur,Proto,SrcAddr,Sport,Dir,DstAddr,Dport,State,sTos,dTos,"
+        "TotPkts,TotBytes,SrcBytes,Label"
+    )
+    rows = [
+        [
+            "2011/08/18 15:39:35.000000",
+            "0.10",
+            "tcp",
+            "192.0.2.10",
+            "1234",
+            " ->",
+            "198.51.100.10",
+            "80",
+            "PA",
+            "0",
+            "0",
+            "2",
+            "100",
+            "50",
+            "flow=From-Botnet-test",
+        ],
+        [
+            "2011/08/18 15:39:45.000000",
+            "0.20",
+            "tcp",
+            "192.0.2.10",
+            "1234",
+            " ->",
+            "198.51.100.10",
+            "80",
+            "PA",
+            "0",
+            "0",
+            "2",
+            "200",
+            "100",
+            "flow=From-Botnet-test",
+        ],
+    ]
+    input_path.write_text(
+        header + "\n" + "\n".join(",".join(row) for row in rows) + "\n", encoding="utf-8"
+    )
+    result = parse_ctu13_binetflow(input_path, ingested_at=datetime(2026, 9, 21, 1, tzinfo=UTC))
+    dataset = build_ctu13_causal_features(result.events)
+
+    assert dataset.feature_names == CAUSAL_FEATURE_NAMES
+    assert len(dataset.records[0].values) == len(CAUSAL_FEATURE_NAMES)
+    index = {name: position for position, name in enumerate(CAUSAL_FEATURE_NAMES)}
+    first, second = dataset.records
+    assert first.values[index["prior_source_connections_300s"]] == 0.0
+    assert first.values[index["seconds_since_prior_source_flow_missing"]] == 1.0
+    assert second.values[index["prior_source_connections_300s"]] == 1.0
+    assert second.values[index["prior_unique_destinations_60s"]] == 1.0
+    assert second.values[index["prior_destination_reuse_300s"]] == 1.0
+    assert second.values[index["prior_destination_port_reuse_300s"]] == 1.0
+    assert second.values[index["prior_short_connections_60s"]] == 1.0
+    assert second.values[index["seconds_since_prior_source_flow_missing"]] == 0.0
+    assert audit_causal_prior_window(result.events)
+
+    output = tmp_path / "causal.parquet"
+    write_causal_feature_parquet(dataset, output)
     assert pq.read_table(output).num_rows == 2

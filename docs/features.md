@@ -57,3 +57,32 @@ power. It uses flow volume, duration, endpoint-port hints, protocol, direction, 
 summary. It omits raw IP addresses, source labels, filenames, scenario IDs, timestamps as calendar
 features, and any feature derived from the target. More features require a new version, leakage
 review, tests, and a new experiment record.
+
+## Causal host/time representation (`FEATURE_VERSION=1.2.0`)
+
+**Status:** implemented and validated as a training/validation-only representation experiment;
+it is not a production detector policy.
+
+Version `1.2.0` composes the complete `1.1.0` vector unchanged and adds prior-only host/time
+features. The extension was introduced separately so the accepted `1.1.0` artifacts remain
+reproducible. Events are sorted by observed UTC time inside one scenario; all values below are
+computed before the current flow and use the current source host only. Unknown rows can provide
+unlabeled context but never enter supervised fitting or metrics.
+
+| Feature(s) | Source fields / window | Units and missing behavior | Rationale and leakage risk |
+|---|---|---|---|
+| `prior_source_connections_300s` | source host; prior 300 seconds | count, zero when no prior flow | Captures slower beacons and host activity beyond the existing 60-second rate. |
+| `prior_unique_destinations_60s` | source/destination; prior 60 seconds | cardinality, zero when empty; missing destination uses an explicit bucket | Captures short-window fan-out without exposing addresses. |
+| `prior_unique_destination_ports_60s` | source/destination port; prior 60 seconds | cardinality, missing ports excluded | Captures rapid service/port diversity. |
+| `prior_unique_protocols_300s` | source/protocol; prior 300 seconds | cardinality; missing protocol uses an explicit bucket | Captures protocol diversity while avoiding categorical label proxies. |
+| `prior_destination_reuse_300s` | source/destination; prior 300 seconds | prior count for the current destination | Distinguishes repeated beacon destinations from first contact; current flow is not counted. |
+| `prior_destination_port_reuse_300s` | source/destination port; prior 300 seconds | prior count for the current port, zero if missing | Represents repeated service targeting without using source labels. |
+| `prior_short_connections_60s` | source and `Dur`; prior 60 seconds | count of prior `Dur <= 1s` flows | Captures bursty short-connection behavior at a second time scale. |
+| `log_prior_total_bytes_300s`, `prior_total_bytes_300s_missing` | `TotBytes`; prior 300 seconds | `log1p(bytes)` plus an indicator when no prior byte total was observed | Adds host-level prior volume without allowing missing totals to look benign. |
+| `log_prior_packet_count_300s`, `prior_packet_count_300s_missing` | `TotPkts`; prior 300 seconds | `log1p(packets)` plus an observation indicator | Adds host-level prior packet activity with explicit missingness. |
+| `log_seconds_since_prior_source_flow`, `seconds_since_prior_source_flow_missing` | `StartTime`; previous flow for the source host | `log1p(seconds)` plus a first-flow indicator | Represents recency without using absolute timestamps or future rows. |
+
+Raw addresses are aggregation keys only and are never columns in the model matrix. Scenario IDs,
+filenames, source labels, and ground-truth labels are metadata only. The implementation and causal
+window audit are in `src/aegistrace/features/causal.py`; the validation artifact is the ignored
+`data/evaluation/phase3_causal_representation/causal_summary.json`.

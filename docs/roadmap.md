@@ -1,7 +1,6 @@
 # AegisTrace Staged Roadmap
 
-**Status:** Revised 2026-09-23 after Phase 3 detector hardening, model-family benchmarking, and
-cross-scenario operating-point validation.
+**Status:** Revised 2026-09-29 after the causal representation study and stability-artifact repair.
 Scenario 7 remains sealed. This roadmap distinguishes repository evidence from approved future
 intent; a design entry is not an implementation claim.
 
@@ -14,7 +13,7 @@ intent; a design entry is not an implementation claim.
 | Phase 2 — ingestion foundations | `VALIDATED` | IoT-23 Zeek adapter is fixture-validated; CTU-13 Argus adapter has checksum-backed Scenario 11 validation and typed Parquet/quality artifacts. Official IoT-23 Capture 34-1 remains authorization-gated. |
 | Phase 3A/B — features and deterministic rules | `VALIDATED` | Feature versions `1.0.0` and behavioral `1.1.0`; three evidence-traceable rules; labels and scenario metadata excluded from model matrices. |
 | Phase 3C — supervised baseline, improvement, hardening | `VALIDATED` / `PROTOTYPE` | Logistic Regression and balanced Random Forest experiments use Scenarios 11/47 for training and 5/53 for validation. The frozen validation policy is ready for one controlled final measurement; Scenario 7 has not been reopened. |
-| Phase 3D — model-family benchmark and stability | `VALIDATED` / `PROTOTYPE` | The model-family benchmark and a four-scenario RF/HGB/SVM operating-point pass are complete. RF is the strongest compliant standalone result; HGB has ranking value but no workload-compliant point; SVM unique coverage is unstable. Scenario 7 remains sealed. |
+| Phase 3D — model-family, stability, and representation studies | `VALIDATED` / `PROTOTYPE` | The model-family benchmark, corrected four-scenario RF/HGB/SVM operating-point pass, and causal `1.2.0` representation study are complete. RF remains the strongest compliant standalone result; HGB has ranking value but no workload-compliant point; causal context modestly improves union coverage without improving any single operating point. Scenario 7 remains sealed. |
 
 ## Post-amendment sequence and current gate
 
@@ -32,10 +31,12 @@ These experiments use training and validation data only. They must not open Scen
 6. **Stability follow-up.** Completed with licensed Scenarios 4 and 10. The residual gap is short,
    low-activity, low-diversity mixed-protocol traffic; this is a representation hypothesis, not a
    reason to add another model family.
-7. **Representation study.** Planned: test richer causal host/time-window context and repeat the
-   same sealed-scenario protocol. Do not tune or evaluate Scenario 7 during this study.
-8. **Finding aggregation and verification.** Remain next architectural steps after representation
-   evidence; preserve every source event and detector ID.
+7. **Representation study.** Completed as feature version `1.2.0`. It reduced all-three residuals
+   by 4.9% through lower RF/SVM overlap, but no individual operating point improved and the gain
+   was dominated by Scenario 10/51. Do not promote it to a frozen policy or reopen Scenario 7.
+8. **Finding aggregation and verification.** Remain the next architectural steps after the residual
+   subgroup receives one narrower scenario-held-out representation audit; preserve every source
+   event and detector ID.
 
 The completed benchmark does not alter the frozen policy or open Scenario 7. Before any final-test
 run, freeze the detector/fusion policy, feature and rule versions, aggregation version, thresholds,

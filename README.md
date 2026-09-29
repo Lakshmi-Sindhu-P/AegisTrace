@@ -8,7 +8,7 @@ AegisTrace is a defensive AI-security research project investigating whether a p
 multi-model system can produce trustworthy investigation recommendations while remaining grounded in
 verifiable evidence and preserving human oversight.
 
-> **Current status:** Phase 2’s IoT-23 Zeek adapter remains validated against safe synthetic data only. Phase 2B’s CTU-13 Argus-flow adapter and Phase 3 feature/rule/ML foundations are implemented. Validation-only improvement, hardening, model-family, and cross-scenario operating-point studies use licensed CTU-13 text flows while keeping Scenario 7 sealed. A bounded Isolation Forest anomaly-prioritization experiment exists, but no fusion, LLM, dashboard, production, or incident-detection claim exists.
+> **Current status:** Phase 2’s IoT-23 Zeek adapter remains validated against safe synthetic data only. Phase 2B’s CTU-13 Argus-flow adapter and Phase 3 feature/rule/ML foundations are implemented. Validation-only improvement, hardening, model-family, cross-scenario operating-point, and causal `1.2.0` representation studies use licensed CTU-13 text flows while keeping Scenario 7 sealed. A bounded Isolation Forest anomaly-prioritization experiment exists, but no fusion, LLM, dashboard, production, or incident-detection claim exists.
 
 ## Local Development
 
@@ -105,6 +105,7 @@ Every conclusion must be traceable to stable identifiers for source events, dete
 - [Phase 3 detector-hardening report](docs/phase3_detector_hardening.md) — ablation, temporal-leakage, calibration, alert-volume, and frozen-policy evidence before final testing.
 - [Phase 3 model-family benchmark](docs/phase3_model_family_benchmark.md) — validation-only specialist comparison, per-case disagreement, and complexity recommendation.
 - [Phase 3 cross-scenario stability report](docs/phase3_model_stability.md) — score semantics, validation-derived operating points, per-scenario metrics, SVM coverage, and residual errors.
+- [Phase 3 causal representation report](docs/phase3_causal_representation.md) — prior-only host/time features, corrected-reference comparison, residual coverage, and limitations.
 - [Agent orchestration and provenance protocol](docs/agent_orchestration.md) — issue lifecycle, local trace linkage, escalation, and lesson promotion boundaries.
 - [Versioned solution knowledge](docs/solution_knowledge.json) — validated reusable lessons only; issue and trace history remains in its original systems.
 - [Limitations](docs/limitations.md) — current and expected validity constraints.
@@ -119,7 +120,7 @@ Every conclusion must be traceable to stable identifiers for source events, dete
 
 See the [staged roadmap](docs/roadmap.md). Phases 0–3 foundations and the bounded model-family
 stability evidence are implemented and validated within their documented boundaries. The next
-research step is a representation-focused temporal/host-context study, followed by findings and
+research step is a narrower residual-subgroup representation audit, followed by findings and
 verification. Scenario 7 may be opened only once, after the final policy is frozen.
 
 ## Safety Boundary

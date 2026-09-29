@@ -39,6 +39,26 @@ asymmetry; raw addresses, labels, filenames, and scenario IDs remain outside the
 This is a useful modeling lesson: a feature can be technically label-blind and still reflect a
 collection environment. Scenario-held-out validation is what tests whether the behavior transfers.
 
+### Causal host/time representation study
+
+Issue #2 adds feature version `1.2.0` without changing `1.1.0`. The new values look farther back in
+time (300 seconds), look at short-window diversity (60 seconds), count prior reuse of the current
+destination/port, track prior protocol diversity and volume, and encode recency since the previous
+source-host flow. “Prior” is the important word: the current row is scored before it is inserted into
+the host's state, and a future-event audit checks that earlier vectors do not change.
+
+These features illustrate why representation is different from model complexity. A model can only
+learn the distinctions present in its inputs. A longer window may reveal a slow beacon, while
+destination reuse may reveal a repeated pattern, but both can also memorize a capture's traffic
+shape. The `1.2.0` validation run reduced the union of cases missed by RF/HGB/SVM by 4.9%, yet no
+single constrained operating point improved. That is a useful negative result: more context created
+some complementary coverage but did not establish a better detector policy.
+
+The study also found a reproducibility lesson. When HGB's operating point was changed to a
+zero-alert fallback, the old disagreement and residual sections still described its previous
+threshold. Derived evidence must be regenerated whenever a policy changes; otherwise two parts of
+one report silently describe different detectors.
+
 ## Precision and recall
 
 For known labels, precision asks: “Of the flows predicted malicious, how many were malicious?”
@@ -146,11 +166,11 @@ are unknown-label rows; that number is a workload warning, not a measured false-
 ## Interview explanation
 
 “I built a small label-blind flow feature set, wrote transparent rules with threshold evidence, and
-then added scenario-local host-behavior aggregates. I compared Logistic Regression and Random Forest
-with class weighting and validation-only thresholds across separate CTU-13 captures. Unknown
-Background and To-* labels stayed unknown. The improvement raised validation recall, but I kept the
-final scenario sealed, reported the precision trade-off, and treated the result as a prototype—not
-proof of compromise detection.”
+then added scenario-local host/time aggregates. I compared simple model families with validation-only
+operating points across separate CTU-13 captures. Unknown Background and To-* labels stayed unknown.
+The causal extension added some union coverage but did not improve a single constrained model, so I
+kept the final scenario sealed, repaired an inconsistent derived artifact, and treated the result
+as a prototype—not proof of compromise detection.”
 
 ## Learning questions
 
@@ -162,3 +182,6 @@ proof of compromise detection.”
 4. Why can a lower threshold improve recall without improving the model's ranking quality (PR-AUC)?
 5. Which behavioral aggregate would be most vulnerable to capture-specific host behavior, and what
    additional split would you use to test that risk?
+6. Why can a feature extension reduce the union of missed cases while making each individual
+   model's recall worse at its own precision/workload threshold?
+7. Why must disagreement and residual artifacts be regenerated when an operating threshold changes?
