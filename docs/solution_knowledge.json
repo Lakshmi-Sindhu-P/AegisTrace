@@ -1,4 +1,50 @@
 {
   "schema_version": "1.0.0",
-  "solutions": []
+  "solutions": [
+    {
+      "solution_id": "solution:regenerate-derived-evidence-after-policy-change",
+      "current_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "status": "current",
+          "originating_issue": "Lakshmi-Sindhu-P/AegisTrace#2",
+          "originating_trace": "2f1e091863e3dd211753776dd875520db69dd9b0906ce62aff3a0bf12c7915f8",
+          "applicable_code_version": "0d0a22d",
+          "problem_pattern": "A detector operating-point correction can leave disagreement, residual, and subgroup summaries describing the prior threshold.",
+          "solution_principle": "Treat derived evaluation sections as reproducible projections of immutable case IDs and feature artifacts; regenerate every projection whenever score policy or threshold semantics change, then validate the repaired artifact before reuse.",
+          "validation_refs": [
+            "uv run python scripts/correct_stability_operating_point.py",
+            "data/evaluation/phase3_model_stability/stability_summary.json artifact_repair.status=validated",
+            "uv run pytest: 61 passed"
+          ],
+          "evidence_refs": [
+            {
+              "kind": "issue",
+              "reference": "https://github.com/Lakshmi-Sindhu-P/AegisTrace/issues/2",
+              "locator": "Outcome and validation comment"
+            },
+            {
+              "kind": "trace",
+              "reference": ".context/traces/phase3-causal-representation.jsonl",
+              "locator": "trace_id=2f1e091863e3dd211753776dd875520db69dd9b0906ce62aff3a0bf12c7915f8"
+            },
+            {
+              "kind": "repository",
+              "reference": "scripts/correct_stability_operating_point.py",
+              "locator": "derived-section repair"
+            },
+            {
+              "kind": "artifact",
+              "reference": "data/evaluation/phase3_model_stability/stability_summary.json",
+              "locator": "artifact_repair",
+              "digest": "2c793f4280f43b8bb78a21b8df940a800485a333966e05a3a595d7f8e6cc91b0"
+            }
+          ],
+          "supersedes": null,
+          "superseded_by": null
+        }
+      ]
+    }
+  ]
 }
