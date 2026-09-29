@@ -83,7 +83,7 @@ mechanism or explain the residual subgroup completely.
 
 ## Narrower hypothesis decision
 
-The predeclared narrower hypothesis was:
+The bounded narrower hypothesis evaluated by the analysis script was:
 
 > Within Scenario 10/51, `1.2.0` candidate-only cases are at least 1.5× as bursty by the median
 > 60-second source-connection and repeated-short counts, while being no more than 1.25× as

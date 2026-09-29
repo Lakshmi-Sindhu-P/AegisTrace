@@ -139,7 +139,7 @@ overlap categories because its declared operating point is the zero-alert fallba
 then summarizes prior-only host/time values by category and scenario; labels are used only to select
 authoritative malicious cases for error analysis and never enter a model matrix.
 
-The predeclared narrow hypothesis is that the Scenario 10/51 overlap change is a high-rate,
+The bounded narrow hypothesis evaluated by the analysis script is that the Scenario 10/51 overlap change is a high-rate,
 repeated-short, low-destination-diversity subgroup. It is marked supported only when the
 candidate-only median 60-second connection and repeated-short counts are at least 1.5 times the
 unchanged residual median, the destination-diversity ratio is at most 1.25, and at least 100
