@@ -151,6 +151,7 @@ scripts/
     run_phase3_model_stability_cached.py
     run_phase3_causal_representation.py
     reconcile_phase3_causal_artifact.py
+    analyze_phase3_causal_overlap.py
     correct_stability_operating_point.py
     validate_agent_trace.py
     validate_solution_knowledge.py
