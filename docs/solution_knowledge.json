@@ -45,6 +45,58 @@
           "superseded_by": null
         }
       ]
+    },
+    {
+      "solution_id": "solution:case-level-overlap-before-representation-promotion",
+      "current_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "status": "current",
+          "originating_issue": "Lakshmi-Sindhu-P/AegisTrace#3",
+          "originating_trace": "dbdab6dc2dce48bba4945c55e945c428ad6e2c5f3321f84b87cbfbd53cb7200b",
+          "applicable_code_version": "55bbbf4",
+          "problem_pattern": "A representation can reduce a pooled residual count by changing model overlap in one capture while leaving a large, structurally similar residual subgroup elsewhere.",
+          "solution_principle": "Before promoting a representation, reconcile event-level predictions by version and report candidate-only, reference-only, shared-residual, and shared-coverage groups per scenario; treat a localized subgroup pattern as descriptive until a scenario-held-out check supports transfer.",
+          "validation_refs": [
+            "uv run python scripts/analyze_phase3_causal_overlap.py --created-at 2026-09-29T03:15:00Z",
+            "data/evaluation/phase3_causal_overlap/overlap_summary.json: 112,001 malicious validation cases reconciled",
+            "data/evaluation/phase3_causal_overlap/overlap_summary.json: Scenario 10/51 burst-density hypothesis status=supported_localized",
+            "uv run pytest: 61 passed, 90.20% coverage",
+            "uv run ruff check .: passed"
+          ],
+          "evidence_refs": [
+            {
+              "kind": "issue",
+              "reference": "https://github.com/Lakshmi-Sindhu-P/AegisTrace/issues/3",
+              "locator": "Outcome and validation comment"
+            },
+            {
+              "kind": "trace",
+              "reference": ".context/traces/phase3-causal-overlap-diagnosis.jsonl",
+              "locator": "trace_id=dbdab6dc2dce48bba4945c55e945c428ad6e2c5f3321f84b87cbfbd53cb7200b"
+            },
+            {
+              "kind": "repository",
+              "reference": "scripts/analyze_phase3_causal_overlap.py",
+              "locator": "case categories and scenario-held-out hypothesis criteria"
+            },
+            {
+              "kind": "repository",
+              "reference": "docs/phase3_causal_overlap.md",
+              "locator": "Conclusion and next step"
+            },
+            {
+              "kind": "artifact",
+              "reference": "data/evaluation/phase3_causal_overlap/overlap_summary.json",
+              "locator": "case_category_counts_by_scenario",
+              "digest": "aad3924a317cd7e31878a26134dabd7d2acf4e7e50b8a94378fbb11d9b82cb91"
+            }
+          ],
+          "supersedes": null,
+          "superseded_by": null
+        }
+      ]
     }
   ]
 }
