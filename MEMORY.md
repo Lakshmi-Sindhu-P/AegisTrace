@@ -22,7 +22,7 @@ For portfolio claims, also preserve the categories defined by `docs/resume_evide
 
 ### Current Implemented State
 
-**Status: CURRENT / IMPLEMENTED and VALIDATED — Phase 3 detection foundations as of 2026-09-21**
+**Status: CURRENT / IMPLEMENTED and VALIDATED — Phase 3 detection and provenance foundations as of 2026-09-29**
 
 - The repository contains governance and Phase 0 documentation plus an installable Python 3.12 package foundation.
 - `AGENTS.md` installs the persistent memory protocol for repository-aware coding agents.
@@ -38,6 +38,8 @@ For portfolio claims, also preserve the categories defined by `docs/resume_evide
 - A pre-final hardening runner performs one-at-a-time behavioral-group ablations, a future-event temporal-causality audit, raw versus training-only sigmoid calibration assessment, and alert-volume analysis. It refuses sealed Scenario 7 and freezes the validation policy in `configs/phase3_frozen_policy.json`: balanced Random Forest, behavioral `1.1.0`, seed 42, raw scores, threshold 0.20, and existing deterministic rules v1.0.0 retained separately.
 - `src/aegistrace/evaluation/model_family.py` and `scripts/run_phase3_model_family_benchmark.py` implement the first post-amendment validation-only model-family benchmark. It compares retained rules, Logistic Regression, shallow Decision Tree, Random Forest, Extra Trees, HistGradientBoosting, practical linear SVM, and a separate Isolation Forest anomaly experiment, with per-case disagreement and an explicit sealed-Scenario-7 guard.
 - `scripts/run_phase3_model_stability_cached.py` and `scripts/correct_stability_operating_point.py` implement the cross-scenario RF/HGB/Linear-SVM stability pass over immutable behavioral `1.1.0` Parquet artifacts. `data/evaluation/phase3_model_stability/stability_summary.json` records model-specific score semantics, a validation-only precision/workload threshold policy, four-scenario metrics, alert volumes, SVM unique coverage, and all-model residual errors; Scenario 7 is explicitly excluded.
+- `src/aegistrace/schemas/agent_trace.py` implements strict redacted agent-trace and versioned solution-knowledge records. `scripts/validate_agent_trace.py` and `scripts/validate_solution_knowledge.py` validate local JSONL provenance and tracked reusable lessons. `.github/ISSUE_TEMPLATE/` defines structured issue forms for work, human blockers, architecture decisions, and retrospective lessons; no GitHub Actions scheduler or self-modifying governance is enabled.
+- `LICENSE` establishes the repository's MIT license. Raw datasets, generated evaluation artifacts, and local agent traces remain excluded by `.gitignore`.
 - No LLM or AI-security scanner integration exists.
 - Evaluation metrics and reproducible baseline/improvement artifacts exist; the improvement result is limited to four training/validation scenarios and no production or cross-dataset performance result exists.
 - No API, dashboard, persistent application database, container stack, or cloud deployment exists.
@@ -97,6 +99,7 @@ isolation, remediation, or other destructive response.
 README.md
 AGENTS.md
 MEMORY.md
+LICENSE
 pyproject.toml
 docker-compose.yml
 .env.example
@@ -110,6 +113,8 @@ docs/
     limitations.md
     resume_evidence.md
     roadmap.md
+    agent_orchestration.md
+    solution_knowledge.json
     learning_notes/
 src/aegistrace/
     ingestion/
@@ -141,6 +146,10 @@ scripts/
     run_phase3_model_stability.py
     run_phase3_model_stability_cached.py
     correct_stability_operating_point.py
+    validate_agent_trace.py
+    validate_solution_knowledge.py
+.github/
+    ISSUE_TEMPLATE/
 configs/
     phase3_frozen_policy.json
 artifacts/
@@ -258,6 +267,9 @@ evidence; none is currently implemented.
 - Preserve raw inputs or references; version transformations, features, datasets, detectors, models, prompts, and experiments.
 - Never silently replace training data. Record dataset name/version, download date, source URL, record count, and checksum where practical.
 - Use a simple structured experiment registry first; add MLflow only if a demonstrated need emerges.
+- Validate every local trace and solution-knowledge file with the repository validators before using it
+  as evidence. Keep issue history, trace history, and reusable lessons separate and linked by stable
+  references.
 
 ### Testing and Evaluation
 
@@ -297,6 +309,7 @@ After each meaningful implementation step, explain what was built, why it exists
 | 2026-09-22 | APPROVED INTENT / DESIGN | Amended the target from a single malicious-vs-benign classifier to a provenance-first, multi-model investigation system with specialist detectors, disagreement analysis, optional interpretable fusion, deterministic findings, verification labels, vetted references, two independently frozen AI roles, tiered review, and non-destructive recommendations. | `docs/architecture.md`, `docs/methodology.md`, `docs/evaluation.md`, `docs/roadmap.md`, `docs/project_charter.md`, `docs/limitations.md`, and `docs/resume_evidence.md`. Existing Phase 3 work remains valid; Scenario 7 was not opened. |
 | 2026-09-22 | VALIDATED | Completed the first post-amendment model-family benchmark without opening Scenario 7. At the frozen validation operating point, Random Forest retained the strongest F1/recall, HistGradientBoosting had the best PR-AUC, linear SVM added 30 unique malicious cases only at a very high false-positive cost, and Isolation Forest added no unique malicious coverage while producing a large workload. | Runner `scripts/run_phase3_model_family_benchmark.py`; module `src/aegistrace/evaluation/model_family.py`; artifact `data/evaluation/phase3_model_family/benchmark_summary.json`; report `docs/phase3_model_family_benchmark.md`. The result supports no fusion or additional detector-family complexity yet; more scenario/split stability analysis is recommended. |
 | 2026-09-23 | VALIDATED | Completed the cross-scenario RF/HGB/Linear-SVM operating-point stability pass without opening Scenario 7. Added licensed Scenarios 45 and 51 to validation, documented model-specific score scales, and selected thresholds only on pooled validation labels under precision >= 0.95 and <= 200 alerts per 1,000 labeled flows. | Runner `scripts/run_phase3_model_stability_cached.py`; correction/provenance helper `scripts/correct_stability_operating_point.py`; artifact `data/evaluation/phase3_model_stability/stability_summary.json`; report `docs/phase3_model_stability.md`. RF is the strongest compliant standalone result (PR-AUC 0.999589); HGB has higher PR-AUC (0.999738) but no feasible operating point under both constraints; SVM uniquely catches 155 malicious cases in only two of four scenarios. All three miss 3,192 short/low-activity/low-diversity mixed-protocol cases. No fusion or new model family is justified; a representation-focused temporal/host-context study is next. |
+| 2026-09-29 | VALIDATED | Implemented the approved Option-A issue/trace/lesson foundation. Added strict trace and solution-knowledge schemas/validators, explicit local trace ignores, structured GitHub issue forms and lifecycle documentation, and an MIT license. | `AGENTS.md`, `.gitignore`, `.github/ISSUE_TEMPLATE/`, `src/aegistrace/schemas/agent_trace.py`, `scripts/validate_agent_trace.py`, `scripts/validate_solution_knowledge.py`, `docs/agent_orchestration.md`, `docs/solution_knowledge.json`, `LICENSE`; `uv run pytest`: 60 passed with 91.95% coverage; Ruff and mypy passed. No scheduler, OTel stack, or self-modifying governance was added. |
 
 ### Open Decisions
 
@@ -304,5 +317,6 @@ After each meaningful implementation step, explain what was built, why it exists
 - Official IoT-23 Capture 34-1 authorization and the resulting acquisition manifest are not yet available.
 - CTU-13 Phase 3 stability validation covers Scenarios 11 and 47 for training plus 5, 12, 4, and 10 for validation; Scenario 7 is sealed. The frozen policy remains ready for one controlled final measurement, but this pass does not authorize reopening Scenario 7.
 - The model-family and stability comparisons are complete. Fusion remains deferred because SVM unique coverage is unstable and HGB has no workload-compliant operating point. A richer causal temporal/host representation study should precede any new model family; deterministic finding aggregation, verification schema, reference retrieval, and dual-LLM contracts remain scheduled in `docs/roadmap.md`.
+- The Option-A provenance foundation is complete. Initial tracking issues should be used on the next real AegisTrace change before any scheduler, automatic issue mutation, full OTel stack, or self-improvement automation is proposed.
 - DShield endpoint/window, scanner schema, and any need for FastAPI, PostgreSQL, or Azure remain deferred to their documented milestones.
 - No open item above should be treated as decided until it is explicitly approved and logged here.

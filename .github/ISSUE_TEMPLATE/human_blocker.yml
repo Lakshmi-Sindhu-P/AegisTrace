@@ -1,0 +1,43 @@
+name: Human blocker
+description: Record an exact decision, permission, or artifact required from a human owner.
+title: "[Blocked Human] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        `BLOCKED_HUMAN` stops this issue only. Unrelated `READY` issues may continue.
+  - type: input
+    id: state
+    attributes:
+      label: State
+      value: BLOCKED_HUMAN
+    validations:
+      required: true
+  - type: textarea
+    id: required_input
+    attributes:
+      label: Exact required input
+      description: State the one decision, permission, or artifact needed to proceed.
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why automation cannot decide
+      description: Explain the safety, ownership, authorization, or ambiguity boundary.
+    validations:
+      required: true
+  - type: textarea
+    id: blocked_scope
+    attributes:
+      label: Blocked scope and independent work
+      description: Identify what is blocked and which unrelated work remains runnable.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and trace references
+      description: Link the issue, trace IDs, source refs, and latest commit.
+    validations:
+      required: true

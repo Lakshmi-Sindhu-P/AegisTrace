@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security-sensitive disclosure
+    url: https://github.com/Lakshmi-Sindhu-P/AegisTrace/security
+    about: Do not put secrets, credentials, raw telemetry, or vulnerability details in a public issue.

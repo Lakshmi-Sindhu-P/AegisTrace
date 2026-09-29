@@ -1,0 +1,64 @@
+name: Retrospective lesson
+description: Propose one reusable engineering lesson derived from resolved evidence.
+title: "[Lesson] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A lesson must be reusable and validated. Do not duplicate the full issue or trace history.
+  - type: dropdown
+    id: state
+    attributes:
+      label: State
+      options:
+        - PROPOSED
+        - VALIDATING
+        - DONE
+        - SUPERSEDED
+    validations:
+      required: true
+  - type: input
+    id: originating_issue
+    attributes:
+      label: Originating issue
+      placeholder: "owner/repository#123"
+    validations:
+      required: true
+  - type: input
+    id: originating_trace
+    attributes:
+      label: Originating trace ID
+    validations:
+      required: true
+  - type: input
+    id: applicable_code_version
+    attributes:
+      label: Applicable code/commit version
+    validations:
+      required: true
+  - type: textarea
+    id: problem_pattern
+    attributes:
+      label: Reusable problem pattern
+    validations:
+      required: true
+  - type: textarea
+    id: solution_principle
+    attributes:
+      label: Solution principle
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation and evidence
+      description: Include commands, tests, artifact paths, and source references.
+    validations:
+      required: true
+  - type: textarea
+    id: supersession
+    attributes:
+      label: Supersession history
+      description: Link prior or replacement lesson versions; never overwrite an old version.
+    validations:
+      required: true

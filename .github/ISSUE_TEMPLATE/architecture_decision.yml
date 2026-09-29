@@ -1,0 +1,45 @@
+name: Architecture decision
+description: Record a material design choice, reversal, or security-boundary decision.
+title: "[Decision] "
+body:
+  - type: dropdown
+    id: state
+    attributes:
+      label: State
+      options:
+        - PROPOSED
+        - READY
+        - DONE
+        - SUPERSEDED
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Decision question
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options and trade-offs
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision and rationale
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Scope, interfaces, and migration impact
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence, traces, validation, and follow-ups
+    validations:
+      required: true

@@ -1,0 +1,71 @@
+name: Agent work item
+description: Track planned work, a bug, a regression, or a follow-up with evidence and validation.
+title: "[Agent] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for meaningful work or problems. Keep secrets and raw telemetry out of the issue.
+        Link local trace IDs and commits instead.
+  - type: dropdown
+    id: state
+    attributes:
+      label: State
+      options:
+        - PROPOSED
+        - READY
+        - IN_PROGRESS
+        - VALIDATING
+        - DONE
+        - SUPERSEDED
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective or problem
+      description: State the requested outcome or observed failure.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and boundaries
+      description: Include allowed files/systems, prohibited actions, and sealed-data constraints.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List issue references and state which are blocking.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and trace references
+      description: Link repository paths, commit/blob refs, trace IDs, commands, or authoritative URLs.
+    validations:
+      required: true
+  - type: textarea
+    id: attempts
+    attributes:
+      label: Attempts and failures
+      description: Append attempts; do not rewrite history.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance and validation
+      description: Define deterministic tests, commands, metrics, or proof required for closure.
+    validations:
+      required: true
+  - type: textarea
+    id: escalation
+    attributes:
+      label: Stop conditions and escalation
+      description: State when to use BLOCKED_HUMAN and the exact input required.
+    validations:
+      required: true

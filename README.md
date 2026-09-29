@@ -2,6 +2,8 @@
 
 **Evidence-Grounded AI Security Triage**
 
+Licensed under the [MIT License](LICENSE).
+
 AegisTrace is a defensive AI-security research project investigating whether a provenance-first,
 multi-model system can produce trustworthy investigation recommendations while remaining grounded in
 verifiable evidence and preserving human oversight.
@@ -103,6 +105,8 @@ Every conclusion must be traceable to stable identifiers for source events, dete
 - [Phase 3 detector-hardening report](docs/phase3_detector_hardening.md) — ablation, temporal-leakage, calibration, alert-volume, and frozen-policy evidence before final testing.
 - [Phase 3 model-family benchmark](docs/phase3_model_family_benchmark.md) — validation-only specialist comparison, per-case disagreement, and complexity recommendation.
 - [Phase 3 cross-scenario stability report](docs/phase3_model_stability.md) — score semantics, validation-derived operating points, per-scenario metrics, SVM coverage, and residual errors.
+- [Agent orchestration and provenance protocol](docs/agent_orchestration.md) — issue lifecycle, local trace linkage, escalation, and lesson promotion boundaries.
+- [Versioned solution knowledge](docs/solution_knowledge.json) — validated reusable lessons only; issue and trace history remains in its original systems.
 - [Limitations](docs/limitations.md) — current and expected validity constraints.
 - [Resume evidence](docs/resume_evidence.md) — claimable work separated from planned work.
 - [Phase 0 learning note](docs/learning_notes/phase_0.md) — concepts and interview explanation to understand before implementation.

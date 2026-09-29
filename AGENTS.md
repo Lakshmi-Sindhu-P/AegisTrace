@@ -41,6 +41,54 @@ Before completing a task:
 3. Verify that documentation and portfolio claims match actual evidence.
 4. Report unresolved conflicts between project intent and implementation.
 
+## Issue, Trace, and Reusable-Lesson Protocol
+
+GitHub Issues are the durable history for planned work and meaningful problems. Use an issue for
+material bugs, failures, blockers, regressions, architectural decisions, follow-ups, and approved
+work. The issue must preserve enough history to reconstruct:
+
+```text
+problem -> cause -> attempts -> failures -> solution -> change -> proof
+```
+
+Use these issue states in the issue body and status comments:
+
+- `PROPOSED` — scoped but not approved to run.
+- `READY` — approved and dependency-free (or dependencies satisfied).
+- `IN_PROGRESS` — actively owned by one workspace/branch.
+- `BLOCKED_HUMAN` — exact human input, permission, or decision is required; unrelated `READY`
+  issues remain runnable.
+- `VALIDATING` — implementation is complete and evidence is being checked.
+- `DONE` — validation, commits/PRs, outcome, and follow-ups are recorded.
+- `SUPERSEDED` — replaced by a linked issue or solution version; history is retained.
+
+Every meaningful action must link to an issue and emit a redacted local trace record. A trace must
+link the issue, trace/span lineage, Conductor workspace and agent/session, branch and commit/code
+version, action, source references, validation, outcome, and approval state. Use content digests for
+commands and artifacts; never store secrets or unredacted tool output. Record concise reason codes
+and confidence basis, not hidden chain-of-thought.
+
+Deterministic source references must identify repository paths with commit/blob context, commands
+with their environment and result, external URLs with retrieval time and content digest, and linked
+issue/PR identifiers. A model-generated suggestion is a hypothesis until supported by repository
+evidence, tests, or an authoritative source.
+
+Reusable lessons belong in the versioned solution-knowledge store, not in place of `MEMORY.md`,
+Issues, or traces. A lesson is admitted only when it is generalizable and validated. Each lesson
+version must link its originating issue and trace, applicable code/commit version, problem pattern,
+solution principle, validation evidence, and supersession links. Revalidate a prior lesson against
+current code before reuse. If drift changes its applicability, create/link a new issue and append a
+new version; never overwrite an old version.
+
+No agent may autonomously change `AGENTS.md`, security boundaries, sealed-data policy, merge
+privileges, issue/trace rules, or other high-impact governance. Such changes require a linked issue,
+proposed diff, evidence/tests, review, and explicit owner approval. Retrospectives may propose
+improvement issues but may not promote their own lessons without that review.
+
+Independent `READY` issues may run concurrently in isolated Conductor workspaces, branches, and
+PRs. Use one shared workspace only for one intentionally coupled deliverable. A future scheduler may
+consume the same states and linkage fields, but no autonomous scheduler is enabled by this protocol.
+
 ## Project Guardrails
 
 - Keep all security work defensive and confined to offline datasets, synthetic fixtures, localhost, isolated containers, controlled environments, or explicitly authorized defensive systems.
