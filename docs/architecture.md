@@ -238,7 +238,7 @@ overwriting earlier records.
 ### DatasetManifest and ExperimentRun
 
 - `DatasetManifest`: dataset/version, acquisition time, official source, selected scenarios, file checksums, counts, license/terms note, and transformation lineage.
-- `ExperimentRun`: experiment ID, code revision, dataset/feature/model versions, split policy, hyperparameters, metrics artifact references, timestamp, and notes.
+- `ExperimentRun`: experiment ID, code revision, dataset/feature/model versions, split policy, hyperparameters, metrics artifact references, timestamp, and notes. The tracked `docs/experiment_registry.json` now implements a small registry for validated Phase 3 runs; it is evidence metadata, not a scheduler or experiment orchestrator.
 
 Future experiment records must also retain detector-family comparison, disagreement taxonomy,
 confidence intervals, alert volume, runtime/resource cost, and the reason a specialist was retained

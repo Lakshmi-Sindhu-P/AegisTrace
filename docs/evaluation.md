@@ -326,3 +326,19 @@ guard are in `data/evaluation/phase3_causal_overlap/overlap_summary.json`; the d
 [phase3_causal_overlap.md](phase3_causal_overlap.md). Any follow-up must test this narrower
 hypothesis with a scenario-held-out non-sealed capture or move to deterministic finding aggregation;
 Scenario 7 remains sealed.
+
+## Reproducibility and uncertainty artifacts
+
+The tracked [experiment registry](experiment_registry.json) is the canonical index for the current
+Phase 3 runs. It links each run to its code revision, scenario split, feature versions, command,
+machine-readable artifact digest, documentation, and claim boundary. Run
+`uv run python scripts/validate_experiment_registry.py docs/experiment_registry.json --require-artifacts`
+when the ignored evaluation artifacts are available locally. Run
+`uv run python scripts/validate_phase3_evidence.py` for the additional sealed-scenario and known-
+artifact consistency checks.
+
+`data/evaluation/phase3_uncertainty/uncertainty_summary.json` contains 95% Wilson score intervals
+for proportions recoverable from the recorded confusion counts. These intervals are useful for
+communicating uncertainty around the validation operating points, but they are not bootstrap
+confidence intervals over independent events and do not estimate PR-AUC uncertainty. No threshold,
+model, or policy decision was changed by this artifact.

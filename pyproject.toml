@@ -38,6 +38,7 @@ packages = ["src/aegistrace"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers --cov=aegistrace --cov-report=term-missing --cov-fail-under=90"
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.coverage.run]
 branch = true

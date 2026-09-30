@@ -1,0 +1,220 @@
+{
+  "schema_version": "1.0.0",
+  "registry_version": "1.0.0",
+  "runs": [
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-model-family-1.1.0",
+      "name": "CTU-13 post-amendment model-family benchmark",
+      "status": "PROTOTYPE",
+      "created_at": "2026-09-22T12:00:00Z",
+      "code_version": "f2e7227",
+      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
+      "feature_versions": ["1.1.0"],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53"
+      ],
+      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "seed": 42,
+      "command": "uv run python scripts/run_phase3_model_family_benchmark.py",
+      "configuration": {
+        "models": [
+          "rules",
+          "logistic_regression",
+          "decision_tree",
+          "random_forest",
+          "extra_trees",
+          "hist_gradient_boosting",
+          "svm",
+          "isolation_forest"
+        ],
+        "unknown_labels": "excluded from supervised ground truth"
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_model_family/benchmark_summary.json",
+          "digest": "5061f5f10cd7d3abbcb94bc38e5a957018f8f6fb87e7c337d0c55c51249cc876",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/phase3_model_family_benchmark.md",
+        "docs/evaluation.md"
+      ],
+      "claim_boundary": "Validation-only comparative prototype; not a final detector or operational claim."
+    },
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-model-stability-1.1.0",
+      "name": "CTU-13 cross-scenario RF/HGB/SVM operating-point stability",
+      "status": "VALIDATED",
+      "created_at": "2026-09-22T16:15:00Z",
+      "code_version": "f2e7227",
+      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
+      "feature_versions": ["1.1.0"],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53",
+        "CTU-Malware-Capture-Botnet-45",
+        "CTU-Malware-Capture-Botnet-51"
+      ],
+      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "seed": 42,
+      "command": "uv run python scripts/run_phase3_model_stability_cached.py",
+      "configuration": {
+        "models": ["random_forest", "hist_gradient_boosting", "svm"],
+        "precision_floor": 0.95,
+        "alerts_per_1000_cap": 200,
+        "score_thresholds": "model-specific validation search"
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_model_stability/stability_summary.json",
+          "digest": "2c793f4280f43b8bb78a21b8df940a800485a333966e05a3a595d7f8e6cc91b0",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/phase3_model_stability.md",
+        "docs/evaluation.md"
+      ],
+      "claim_boundary": "Scenario-aware validation evidence with Scenario 7 sealed; not operational generalization."
+    },
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-causal-representation-1.2.0",
+      "name": "CTU-13 causal host/time representation study",
+      "status": "PROTOTYPE",
+      "created_at": "2026-09-29T01:00:00Z",
+      "code_version": "f2e7227",
+      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
+      "feature_versions": ["1.2.0"],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53",
+        "CTU-Malware-Capture-Botnet-45",
+        "CTU-Malware-Capture-Botnet-51"
+      ],
+      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "seed": 42,
+      "command": "uv run python scripts/run_phase3_causal_representation.py",
+      "configuration": {
+        "models": ["random_forest", "hist_gradient_boosting", "svm"],
+        "operating_policy": "precision >= 0.95 and <= 200 alerts per 1000 labeled rows",
+        "unknown_labels": "context only; excluded from supervised ground truth"
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_causal_representation/causal_summary.json",
+          "digest": "e4fe308dbf472b24d42565f697d4c2d9c59328ff791ed1cd47c1464f46cd3fcc",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/phase3_causal_representation.md",
+        "docs/methodology.md"
+      ],
+      "claim_boundary": "Validation-only representation prototype; 1.2.0 is not the frozen final policy."
+    },
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-causal-overlap-1.1.0-vs-1.2.0",
+      "name": "CTU-13 causal-overlap subgroup diagnosis",
+      "status": "VALIDATED",
+      "created_at": "2026-09-29T03:15:00Z",
+      "code_version": "f2e7227",
+      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
+      "feature_versions": ["1.1.0", "1.2.0"],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53",
+        "CTU-Malware-Capture-Botnet-45",
+        "CTU-Malware-Capture-Botnet-51"
+      ],
+      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "seed": 42,
+      "command": "uv run python scripts/analyze_phase3_causal_overlap.py --created-at 2026-09-29T03:15:00Z",
+      "configuration": {
+        "models": ["random_forest", "svm"],
+        "case_categories": ["causal_only", "reference_only", "both_residual", "both_union"],
+        "model_refit": false,
+        "threshold_selection": "none; frozen artifact predictions"
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_causal_overlap/overlap_summary.json",
+          "digest": "aad3924a317cd7e31878a26134dabd7d2acf4e7e50b8a94378fbb11d9b82cb91",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/phase3_causal_overlap.md",
+        "docs/evaluation.md"
+      ],
+      "claim_boundary": "Descriptive validation diagnosis; localized hypothesis only, with no policy promotion or causal/generalization claim."
+    },
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-aggregate-uncertainty-1.0.0",
+      "name": "Aggregate Wilson uncertainty for recorded Phase 3 confusion counts",
+      "status": "VALIDATED",
+      "created_at": "2026-09-30T09:15:00Z",
+      "code_version": "f2e7227",
+      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
+      "feature_versions": ["1.1.0", "1.2.0"],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53",
+        "CTU-Malware-Capture-Botnet-45",
+        "CTU-Malware-Capture-Botnet-51"
+      ],
+      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "seed": 42,
+      "command": "uv run python scripts/summarize_phase3_uncertainty.py --created-at 2026-09-30T09:15:00Z",
+      "configuration": {
+        "confidence": 0.95,
+        "interval_method": "Wilson score over recorded confusion counts",
+        "refit": false,
+        "threshold_selection": "none"
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_uncertainty/uncertainty_summary.json",
+          "digest": "6a8d3235c93fd55541b7b638aef8d59278e5da913cc59fc7e71b4faf0b40c210",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/evaluation.md",
+        "docs/methodology.md"
+      ],
+      "claim_boundary": "Aggregate-count uncertainty only; no PR-AUC uncertainty or operational generalization claim."
+    }
+  ]
+}

@@ -74,6 +74,19 @@ scenario-held-out check of the narrow burst-density hypothesis under the same po
 deterministic finding aggregation if more detector complexity is not justified. A lower pooled
 residual alone is not a reason to promote a representation or add fusion.
 
+### Reproducibility and uncertainty
+
+Issue #4 adds a small experiment registry rather than a tracking platform. Each run records the
+code revision, dataset and feature versions, scenario split, seed, command, artifact digest,
+documentation, and claim boundary. This makes it possible to answer “which code and data produced
+this number?” without committing raw datasets or generated evaluation tables.
+
+The uncertainty companion uses Wilson score intervals for proportions that can be reconstructed from
+recorded confusion counts. The interval around recall, for example, describes uncertainty in the
+observed true-positive fraction; it does not make unknown traffic labeled, estimate PR-AUC, or prove
+generalization. Because the intervals are aggregate-count summaries rather than independent-event
+bootstrap estimates, they improve communication but do not replace scenario-aware validation.
+
 ## Precision and recall
 
 For known labels, precision asks: “Of the flows predicted malicious, how many were malicious?”

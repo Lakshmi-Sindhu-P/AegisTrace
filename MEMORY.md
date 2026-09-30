@@ -41,6 +41,7 @@ For portfolio claims, also preserve the categories defined by `docs/resume_evide
 - `src/aegistrace/features/causal.py` and `scripts/run_phase3_causal_representation.py` implement the validation-only `1.2.0` causal host/time representation study over the same four non-sealed validation scenarios. `scripts/reconcile_phase3_causal_artifact.py` refreshes candidate/reference deltas after derived-reference repairs. The ignored `data/evaluation/phase3_causal_representation/causal_summary.json` records feature lineage, checksums, model-specific thresholds, per-scenario metrics, disagreement, and residual coverage; Scenario 7 is explicitly excluded.
 - The prior stability repair now recomputes HGB-derived disagreement/residual sections from recorded case IDs and computes residual reference quantiles once, avoiding an O(n²) diagnostic loop. The repair is recorded in the stability artifact rather than treated as a new detector result.
 - `scripts/analyze_phase3_causal_overlap.py` implements the bounded Issue #3 diagnostic over immutable `1.1.0`/`1.2.0` validation case records and Parquet features. It verifies common-feature identity, classifies RF/SVM overlap changes, summarizes subgroup distributions by scenario, records input checksums, and rejects sealed Scenario 7. The ignored `data/evaluation/phase3_causal_overlap/overlap_summary.json` supports a localized Scenario 10/51 burst-density hypothesis but does not promote `1.2.0` or justify fusion/new model complexity.
+- `src/aegistrace/schemas/experiments.py` implements strict `ExperimentRun`/artifact lineage schemas. `docs/experiment_registry.json` tracks the current model-family, stability, causal representation, overlap diagnosis, and uncertainty runs; `scripts/validate_experiment_registry.py` checks references and digests, and `scripts/validate_phase3_evidence.py` checks sealed-scenario and known-artifact invariants. `src/aegistrace/evaluation/uncertainty.py` and `scripts/summarize_phase3_uncertainty.py` produce aggregate Wilson intervals without refitting or changing thresholds; PR-AUC uncertainty remains explicitly unestimated.
 - `src/aegistrace/schemas/agent_trace.py` implements strict redacted agent-trace and versioned solution-knowledge records. `scripts/validate_agent_trace.py` and `scripts/validate_solution_knowledge.py` validate local JSONL provenance and tracked reusable lessons. `.github/ISSUE_TEMPLATE/` defines structured issue forms for work, human blockers, architecture decisions, and retrospective lessons; no GitHub Actions scheduler or self-modifying governance is enabled.
 - `LICENSE` establishes the repository's MIT license. Raw datasets, generated evaluation artifacts, and local agent traces remain excluded by `.gitignore`.
 - No LLM or AI-security scanner integration exists.
@@ -118,6 +119,7 @@ docs/
     resume_evidence.md
     roadmap.md
     agent_orchestration.md
+    experiment_registry.json
     solution_knowledge.json
     learning_notes/
 src/aegistrace/
@@ -141,6 +143,7 @@ data/
 tests/
 notebooks/
 scripts/
+    __init__.py
     ingest_iot23.py
     ingest_ctu13.py
     run_phase3_baselines.py
@@ -152,6 +155,9 @@ scripts/
     run_phase3_causal_representation.py
     reconcile_phase3_causal_artifact.py
     analyze_phase3_causal_overlap.py
+    summarize_phase3_uncertainty.py
+    validate_experiment_registry.py
+    validate_phase3_evidence.py
     correct_stability_operating_point.py
     validate_agent_trace.py
     validate_solution_knowledge.py
@@ -280,6 +286,10 @@ evidence; none is currently implemented.
 - Validate every local trace and solution-knowledge file with the repository validators before using it
   as evidence. Keep issue history, trace history, and reusable lessons separate and linked by stable
   references.
+- Register every validated Phase 3 run in `docs/experiment_registry.json` with a code revision,
+  split, seed, command, artifact digest, documentation, and claim boundary. Treat the registry as
+  lineage metadata only; it must not schedule work or mutate governance. Run the registry and known-
+  artifact validators before relying on generated metrics.
 
 ### Testing and Evaluation
 
@@ -322,13 +332,14 @@ After each meaningful implementation step, explain what was built, why it exists
 | 2026-09-29 | VALIDATED | Implemented the approved Option-A issue/trace/lesson foundation. Added strict trace and solution-knowledge schemas/validators, explicit local trace ignores, structured GitHub issue forms and lifecycle documentation, and an MIT license. | `AGENTS.md`, `.gitignore`, `.github/ISSUE_TEMPLATE/`, `src/aegistrace/schemas/agent_trace.py`, `scripts/validate_agent_trace.py`, `scripts/validate_solution_knowledge.py`, `docs/agent_orchestration.md`, `docs/solution_knowledge.json`, `LICENSE`; `uv run pytest`: 60 passed with 91.95% coverage; Ruff and mypy passed. No scheduler, OTel stack, or self-modifying governance was added. |
 | 2026-09-29 | VALIDATED | Completed Issue #2's causal host/time representation study without opening Scenario 7. Added feature version `1.2.0` with prior-only 60/300-second activity, diversity, reuse, protocol, volume, and recency values; refit only RF/HGB/SVM under the existing validation-only precision/workload policy; recorded scenario-aware metrics, disagreement, checksums, and residuals; and promoted one reusable lesson about regenerating derived evidence after policy changes. | `src/aegistrace/features/causal.py`, `scripts/run_phase3_causal_representation.py`, `scripts/reconcile_phase3_causal_artifact.py`, `docs/phase3_causal_representation.md`, `docs/solution_knowledge.json`, `data/evaluation/phase3_causal_representation/causal_summary.json` (ignored), and Issue #2. The all-three residual fell from 68,353 to 64,986 (4.9%) through lower RF/SVM overlap, but no single operating point improved; no fusion/new model family is justified. A stale HGB-derived disagreement artifact was repaired by `scripts/correct_stability_operating_point.py`, with an O(n²) residual quantile loop fixed to compute reference quantiles once. `uv run pytest`: 61 passed with 90.20% coverage; Ruff and mypy passed. |
 | 2026-09-29 | VALIDATED | Completed Issue #3's bounded causal-overlap diagnosis without refitting or opening Scenario 7. Deterministic case reconciliation found 10,564 candidate-only, 7,197 reference-only, 57,789 shared residual, and 36,451 shared-coverage malicious validation cases; 10,234 candidate-only cases were in Scenario 10/51. Their median 60-second source/repeated-short counts were 2.125x the unchanged residual subgroup with equal median destination diversity, supporting one localized burst-density hypothesis but not causal proof, `1.2.0` promotion, fusion, or a new model family. | Issue #3; `scripts/analyze_phase3_causal_overlap.py`; `docs/phase3_causal_overlap.md`; ignored `data/evaluation/phase3_causal_overlap/overlap_summary.json`; common-feature identity checks; Scenario 7 sealed guard. The next gate is one scenario-held-out non-sealed test of the narrow hypothesis or deterministic finding aggregation. |
+| 2026-09-30 | VALIDATED | Completed Issue #4 reproducibility hardening without changing detector outputs, thresholds, model families, or Scenario 7 status. Added tests for overlap categorization and sealed-scenario rejection, a tracked five-run experiment registry with digest validation, known-artifact consistency checks, and aggregate Wilson intervals for recorded confusion counts. | Issue #4; `src/aegistrace/schemas/experiments.py`, `src/aegistrace/evaluation/uncertainty.py`, `docs/experiment_registry.json`, `scripts/validate_experiment_registry.py`, `scripts/validate_phase3_evidence.py`, `scripts/summarize_phase3_uncertainty.py`, and new tests. PR-AUC uncertainty remains unestimated; independent scenario-held-out testing and deterministic finding aggregation remain planned. |
 
 ### Open Decisions
 
 - No LLM provider or model has been selected.
 - Official IoT-23 Capture 34-1 authorization and the resulting acquisition manifest are not yet available.
 - CTU-13 Phase 3 stability validation covers Scenarios 11 and 47 for training plus 5, 12, 4, and 10 for validation; Scenario 7 is sealed. The frozen policy remains ready for one controlled final measurement, but this pass does not authorize reopening Scenario 7.
-- The model-family, stability, causal representation, and Issue #3 overlap diagnosis are complete. Fusion remains deferred because no single constrained operating point improved, the union gain is dominated by Scenario 10/51, and HGB has no workload-compliant operating point. A scenario-held-out non-sealed test of the localized burst-density hypothesis or deterministic finding aggregation should precede any final-policy decision; do not reopen Scenario 7 without a frozen policy and explicit gate.
+- The model-family, stability, causal representation, Issue #3 overlap diagnosis, and Issue #4 reproducibility hardening are complete. Fusion remains deferred because no single constrained operating point improved, the union gain is dominated by Scenario 10/51, and HGB has no workload-compliant operating point. A scenario-held-out non-sealed test of the localized burst-density hypothesis or deterministic finding aggregation should precede any final-policy decision; do not reopen Scenario 7 without a frozen policy and explicit gate.
 - The Option-A provenance foundation is complete. Initial tracking issues should be used on the next real AegisTrace change before any scheduler, automatic issue mutation, full OTel stack, or self-improvement automation is proposed.
 - DShield endpoint/window, scanner schema, and any need for FastAPI, PostgreSQL, or Azure remain deferred to their documented milestones.
 - No open item above should be treated as decided until it is explicitly approved and logged here.

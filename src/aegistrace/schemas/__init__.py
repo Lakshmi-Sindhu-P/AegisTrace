@@ -27,6 +27,7 @@ from aegistrace.schemas.events import (
     SourceType,
     event_id_for,
 )
+from aegistrace.schemas.experiments import ExperimentArtifact, ExperimentRegistry, ExperimentRun
 from aegistrace.schemas.manifests import DatasetManifest, ManifestFile, manifest_id_for
 
 __all__ = [
@@ -39,6 +40,9 @@ __all__ = [
     "DetectionResult",
     "DetectionSeverity",
     "DetectorType",
+    "ExperimentArtifact",
+    "ExperimentRegistry",
+    "ExperimentRun",
     "GenericEventDetails",
     "GroundTruthLabel",
     "HttpEventDetails",
