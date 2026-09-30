@@ -97,6 +97,60 @@
           "superseded_by": null
         }
       ]
+    },
+    {
+      "solution_id": "solution:registry-and-uncertainty-boundary",
+      "current_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "status": "current",
+          "originating_issue": "Lakshmi-Sindhu-P/AegisTrace#4",
+          "originating_trace": "9c83df3817610bdb072c8d008c4b19ce66e156325e226f8d31e2117288d2b7eb",
+          "applicable_code_version": "f792c88",
+          "problem_pattern": "Generated evaluation artifacts and manually summarized claims can drift unless each run's code, split, configuration, and artifact identity are tracked together.",
+          "solution_principle": "Keep a small tracked experiment registry with content digests and claim boundaries, and label aggregate-count uncertainty separately from ranking uncertainty or generalization evidence.",
+          "validation_refs": [
+            "uv run python scripts/validate_experiment_registry.py docs/experiment_registry.json --require-artifacts",
+            "uv run python scripts/validate_phase3_evidence.py",
+            "data/evaluation/phase3_uncertainty/uncertainty_summary.json: Wilson intervals over recorded confusion counts",
+            "uv run pytest: 70 passed, 90.56% coverage",
+            "uv run ruff check .: passed",
+            "uv run mypy src: passed"
+          ],
+          "evidence_refs": [
+            {
+              "kind": "issue",
+              "reference": "https://github.com/Lakshmi-Sindhu-P/AegisTrace/issues/4",
+              "locator": "Outcome and validation comment"
+            },
+            {
+              "kind": "trace",
+              "reference": ".context/traces/phase3-quality-hardening.jsonl",
+              "locator": "trace_id=9c83df3817610bdb072c8d008c4b19ce66e156325e226f8d31e2117288d2b7eb"
+            },
+            {
+              "kind": "repository",
+              "reference": "docs/experiment_registry.json",
+              "locator": "five Phase 3 run declarations",
+              "digest": "4d4c44c9e83dc77699a1f27fa96ab57d3f832d129ab1a48911b5d06997c9db5b"
+            },
+            {
+              "kind": "repository",
+              "reference": "src/aegistrace/evaluation/uncertainty.py",
+              "locator": "Wilson score implementation"
+            },
+            {
+              "kind": "artifact",
+              "reference": "data/evaluation/phase3_uncertainty/uncertainty_summary.json",
+              "locator": "inputs and limitations",
+              "digest": "6a8d3235c93fd55541b7b638aef8d59278e5da913cc59fc7e71b4faf0b40c210"
+            }
+          ],
+          "supersedes": null,
+          "superseded_by": null
+        }
+      ]
     }
   ]
 }
