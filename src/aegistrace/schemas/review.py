@@ -28,8 +28,20 @@ from aegistrace.schemas.triage import AssessorRole
 REVIEW_SCHEMA_VERSION = "1.0.0"
 REVIEW_HISTORY_SCHEMA_VERSION = "1.0.0"
 
-REVIEW_ID_NAMESPACE = uuid5(
+#: Identity algorithm versions. See `docs/identity_rule.md`.
+#:
+#: v1 hashed `(subject_triage_id, reviewer_ref, decision, reviewed_at)`. `reviewed_at` is *recording
+#: bookkeeping* rather than a property of the judgment, and including it is what made two distinct
+#: dispositions at the same instant collide (issue #40); it also omitted `final_disposition` and
+#: `subject_role`, which are defining. v1 is retained so a historical id can still be attributed to
+#: the version that produced it; it must never be used to mint new ids.
+REVIEW_ID_NAMESPACE_V1 = uuid5(
     NAMESPACE_URL, "https://github.com/Lakshmi-Sindhu-P/AegisTrace/reviews/v1"
+)
+#: v2 covers the substance of the judgment (role, decision, disposition, superseded link) and drops
+#: the timestamp.
+REVIEW_ID_NAMESPACE = uuid5(
+    NAMESPACE_URL, "https://github.com/Lakshmi-Sindhu-P/AegisTrace/reviews/v2"
 )
 
 
@@ -80,22 +92,69 @@ def _identity(*parts: object) -> str:
     return json.dumps(parts, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
-def review_id_for(
+def review_id_v1_for(
     *,
     subject_triage_id: UUID,
     reviewer_ref: str,
     decision: str,
     reviewed_at: datetime,
 ) -> UUID:
-    """Derive a review identity from its subject, reviewer, decision, and time."""
+    """Reproduce a pre-#40 review id. Historical reconciliation ONLY.
+
+    v1 hashed `(subject_triage_id, reviewer_ref, decision, reviewed_at)`. It omitted the substance
+    of
+    the judgment and included the recording time, which is what made two distinct dispositions in
+    the same instant collide. Never use this to mint new ids.
+    """
 
     return uuid5(
-        REVIEW_ID_NAMESPACE,
+        REVIEW_ID_NAMESPACE_V1,
         _identity(
             str(subject_triage_id),
             reviewer_ref,
             str(decision),
             normalize_utc(reviewed_at).isoformat(),
+        ),
+    )
+
+
+def review_id_for(
+    *,
+    subject_triage_id: UUID,
+    subject_role: str,
+    reviewer_ref: str,
+    decision: str,
+    final_disposition: str,
+    supersedes_review_id: UUID | None = None,
+) -> UUID:
+    """Derive a review identity from the substance of the judgment, by the identity rule.
+
+    The rule (`docs/identity_rule.md`): an id covers exactly the fields that make the entity the
+    entity it is, and nothing else.
+
+    The substance of a human judgment is *who reviewed which conclusion of which role, deciding
+    what,
+    and correcting what*. That is what the identity covers. `reviewed_at` is deliberately excluded:
+    it records *when* the judgment was written down, not *what* it was, and including it made two
+    genuinely distinct dispositions recorded in the same instant collide, so `append_review` refused
+    the second as a duplicate (issue #40).
+
+    `tier` and `escalation_state` are excluded as derived - `tier` follows from the subject via
+    `classify_tier`, and `escalation_state` is tied to `decision` by the coherence invariant.
+    `notes` is excluded because free text makes a fragile content address.
+
+    Use :func:`review_id_v1_for` to reproduce a pre-change id for historical reconciliation.
+    """
+
+    return uuid5(
+        REVIEW_ID_NAMESPACE,
+        _identity(
+            str(subject_triage_id),
+            str(subject_role),
+            reviewer_ref,
+            str(decision),
+            final_disposition,
+            str(supersedes_review_id) if supersedes_review_id is not None else None,
         ),
     )
 
@@ -143,9 +202,11 @@ class HumanReview(FrozenSchema):
             )
         expected_id = review_id_for(
             subject_triage_id=self.subject_triage_id,
+            subject_role=self.subject_role,
             reviewer_ref=self.reviewer_ref,
             decision=self.decision,
-            reviewed_at=self.reviewed_at,
+            final_disposition=self.final_disposition,
+            supersedes_review_id=self.supersedes_review_id,
         )
         if self.review_id != expected_id:
             raise ValueError(
@@ -181,4 +242,5 @@ __all__ = [
     "ReviewTier",
     "TierAssignment",
     "review_id_for",
+    "review_id_v1_for",
 ]

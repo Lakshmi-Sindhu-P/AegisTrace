@@ -35,40 +35,49 @@ OTHER_REVIEWER = "some-other-reviewer"
 def _review_id(**overrides: object) -> object:
     payload: dict = {
         "subject_triage_id": SUBJECT_ID,
+        "subject_role": AssessorRole.EXPERT_ADJUDICATOR,
         "reviewer_ref": REVIEWER,
         "decision": ReviewDecision.CONFIRM,
-        "reviewed_at": REVIEWED_AT,
+        "final_disposition": "no action taken; this is a research record",
+        "supersedes_review_id": None,
     }
     payload.update(overrides)
     return review_id_for(
         subject_triage_id=payload["subject_triage_id"],
+        subject_role=payload["subject_role"],
         reviewer_ref=payload["reviewer_ref"],
         decision=payload["decision"],
-        reviewed_at=payload["reviewed_at"],
+        final_disposition=payload["final_disposition"],
+        supersedes_review_id=payload["supersedes_review_id"],
     )
 
 
 def _review(**overrides: object) -> dict:
-    decision = overrides.get("decision", ReviewDecision.CONFIRM)
-    escalation_state = overrides.get("escalation_state", EscalationState.NONE)
     payload: dict = {
-        "review_id": review_id_for(
-            subject_triage_id=SUBJECT_ID,
-            reviewer_ref=REVIEWER,
-            decision=decision,
-            reviewed_at=REVIEWED_AT,
-        ),
         "subject_triage_id": SUBJECT_ID,
         "subject_role": AssessorRole.EXPERT_ADJUDICATOR,
         "reviewer_ref": REVIEWER,
         "tier": ReviewTier.C_EXPERT_JUDGMENT,
-        "decision": decision,
+        "decision": ReviewDecision.CONFIRM,
         "notes": "reviewed against the cited evidence",
         "reviewed_at": REVIEWED_AT,
-        "escalation_state": escalation_state,
+        "escalation_state": EscalationState.NONE,
         "final_disposition": "no action taken; this is a research record",
     }
     payload.update(overrides)
+    # Derived from the FINAL payload: every identity-bearing field may be overridden, and an id
+    # computed before the overrides would not match the record it is supposed to name. An explicit
+    # `review_id` override is preserved, because several tests deliberately supply a wrong one.
+    if "review_id" in overrides:
+        return payload
+    payload["review_id"] = review_id_for(
+        subject_triage_id=payload["subject_triage_id"],
+        subject_role=payload["subject_role"],
+        reviewer_ref=payload["reviewer_ref"],
+        decision=payload["decision"],
+        final_disposition=payload["final_disposition"],
+        supersedes_review_id=payload.get("supersedes_review_id"),
+    )
     return payload
 
 
@@ -119,9 +128,11 @@ def test_fully_coherent_review_is_accepted() -> None:
 
     assert review.review_id == review_id_for(
         subject_triage_id=review.subject_triage_id,
+        subject_role=review.subject_role,
         reviewer_ref=review.reviewer_ref,
         decision=review.decision,
-        reviewed_at=review.reviewed_at,
+        final_disposition=review.final_disposition,
+        supersedes_review_id=review.supersedes_review_id,
     )
 
 

@@ -208,9 +208,10 @@ def test_spine_raises_if_a_review_were_present(monkeypatch: pytest.MonkeyPatch) 
         review = HumanReview(
             review_id=review_id_for(
                 subject_triage_id=subject_triage_id,
+                subject_role=AssessorRole.TRIAGE_ANALYST,
                 reviewer_ref="integration-test",
                 decision=ReviewDecision.CONFIRM,
-                reviewed_at=CREATED_AT,
+                final_disposition="confirmed",
             ),
             subject_triage_id=subject_triage_id,
             subject_role=AssessorRole.TRIAGE_ANALYST,

@@ -39,7 +39,17 @@ FAILED_ASSESSMENT_SCHEMA_VERSION = "1.0.0"
 TRIAGE_COMPARISON_SCHEMA_VERSION = "1.0.0"
 
 _BASE = "https://github.com/Lakshmi-Sindhu-P/AegisTrace"
-TRIAGE_ID_NAMESPACE = uuid5(NAMESPACE_URL, f"{_BASE}/triage-assessments/v1")
+#: Identity algorithm versions. See `docs/identity_rule.md`.
+#:
+#: v1 hashed `(role, evidence_bundle_id, input_snapshot_digest, category, summary)`, omitting
+#: `severity` and `cited_evidence_ids` - both of which the agreement engine already treats as
+#: distinguishing, since it reports `severity_mismatch` and `evidence_divergence` (issue #35). v1 is
+#: retained so a historical id can still be attributed to the version that produced it; it must
+#: never be used to mint new ids.
+TRIAGE_ID_NAMESPACE_V1 = uuid5(NAMESPACE_URL, f"{_BASE}/triage-assessments/v1")
+#: v2 adds the severity and the cited evidence, so an admitted assessment is identified by its
+#: conclusion rather than only by its summary line.
+TRIAGE_ID_NAMESPACE = uuid5(NAMESPACE_URL, f"{_BASE}/triage-assessments/v2")
 FAILED_ATTEMPT_ID_NAMESPACE = uuid5(NAMESPACE_URL, f"{_BASE}/failed-assessments/v1")
 COMPARISON_ID_NAMESPACE = uuid5(NAMESPACE_URL, f"{_BASE}/triage-comparisons/v1")
 
@@ -212,7 +222,7 @@ def _identity(*parts: object) -> str:
     return json.dumps(parts, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
-def triage_id_for(
+def triage_id_v1_for(
     *,
     role: str,
     evidence_bundle_id: UUID,
@@ -220,12 +230,64 @@ def triage_id_for(
     category: str,
     summary: str,
 ) -> UUID:
-    """Derive an assessment identity from its role, bundle, snapshot, category, and summary."""
+    """Reproduce a pre-#35 assessment id. Historical reconciliation ONLY.
+
+    v1 omitted `severity` and `cited_evidence_ids`, which the agreement engine already distinguishes
+    on. Never use this to mint new ids.
+    """
+
+    return uuid5(
+        TRIAGE_ID_NAMESPACE_V1,
+        _identity(
+            str(role), str(evidence_bundle_id), input_snapshot_digest, str(category), summary
+        ),
+    )
+
+
+def triage_id_for(
+    *,
+    role: str,
+    evidence_bundle_id: UUID,
+    input_snapshot_digest: str,
+    category: str,
+    summary: str,
+    severity: str | None = None,
+    cited_evidence_ids: tuple[str, ...] = (),
+) -> UUID:
+    """Derive an assessment identity from its conclusion, by the identity rule.
+
+    The rule (`docs/identity_rule.md`): an id covers exactly the fields that make the entity the
+    entity it is, and nothing else.
+
+    v1 covered `(role, bundle, snapshot, category, summary)` and omitted `severity` and
+    `cited_evidence_ids`. That was inconsistent with the rest of the system, which **already treats
+    both as distinguishing**: the agreement engine reports `severity_mismatch` and
+    `evidence_divergence` for a genuine pair of assessors whose severity or citations differ. An
+    identity that disagrees with the engine about what makes two assessments different let a changed
+    severity keep the same id (issue #35).
+
+    The asymmetry was the strongest evidence this was an oversight: `failed_attempt_id_for` IS
+    content-addressed over `raw_digest`, so a *rejected* assessment was more uniquely identified
+    than
+    an *admitted* one.
+
+    Citations are sorted, so the order an assessor happened to list them in cannot change the id.
+    `input_snapshot_digest` is retained deliberately: it is the exact input the assessor saw, and
+    recording it is load-bearing for mutual blindness even though it is derivable from the bundle.
+
+    Use :func:`triage_id_v1_for` to reproduce a pre-change id for historical reconciliation.
+    """
 
     return uuid5(
         TRIAGE_ID_NAMESPACE,
         _identity(
-            str(role), str(evidence_bundle_id), input_snapshot_digest, str(category), summary
+            str(role),
+            str(evidence_bundle_id),
+            input_snapshot_digest,
+            str(category),
+            summary,
+            str(severity) if severity is not None else None,
+            sorted(str(citation) for citation in cited_evidence_ids),
         ),
     )
 
@@ -264,4 +326,5 @@ __all__ = [
     "comparison_id_for",
     "failed_attempt_id_for",
     "triage_id_for",
+    "triage_id_v1_for",
 ]

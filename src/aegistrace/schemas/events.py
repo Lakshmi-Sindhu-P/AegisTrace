@@ -26,8 +26,20 @@ from aegistrace.schemas.common import (
 )
 
 EVENT_SCHEMA_VERSION = "1.0.0"
-EVENT_ID_NAMESPACE = uuid5(
+
+#: Identity algorithm versions. See `docs/identity_rule.md`.
+#:
+#: v1 hashed `(source_type, source_dataset, scenario_id, dataset_version, source_event_id)`. Because
+#: `source_event_id` is `line-N` - arrival bookkeeping, numbered per file - two different records in
+#: two different files of the same scenario could share one id (issue #38). v1 is retained so a
+#: historical id can still be attributed to the version that produced it; it must never be used to
+#: mint new ids.
+EVENT_ID_NAMESPACE_V1 = uuid5(
     NAMESPACE_URL, "https://github.com/Lakshmi-Sindhu-P/AegisTrace/events/v1"
+)
+#: v2 adds `raw_checksum`, qualifying `line-N` to the file it was read from.
+EVENT_ID_NAMESPACE = uuid5(
+    NAMESPACE_URL, "https://github.com/Lakshmi-Sindhu-P/AegisTrace/events/v2"
 )
 
 
@@ -181,21 +193,61 @@ EventDetails = Annotated[
 ]
 
 
-def event_id_for(source: SourceRecordRef) -> UUID:
-    """Derive a repeatable event ID solely from stable source identity."""
+def event_id_v1_for(source: SourceRecordRef) -> UUID:
+    """Reproduce a pre-#38 event id. Historical reconciliation ONLY.
 
-    identity = json.dumps(
-        [
+    v1 hashed `(source_type, source_dataset, scenario_id, dataset_version, source_event_id)`. Since
+    `source_event_id` is `line-N`, numbered per file, two different records in two different files
+    of
+    the same scenario could share one id. Never use this to mint new ids.
+    """
+
+    return uuid5(
+        EVENT_ID_NAMESPACE_V1,
+        _identity(
             source.source_type.value,
             source.source_dataset,
             source.scenario_id,
             source.dataset_version,
             source.source_event_id,
-        ],
-        ensure_ascii=False,
-        separators=(",", ":"),
+        ),
     )
-    return uuid5(EVENT_ID_NAMESPACE, identity)
+
+
+def event_id_for(source: SourceRecordRef) -> UUID:
+    """Derive a repeatable event ID from the source record, by the identity rule.
+
+    The rule (`docs/identity_rule.md`): an id covers exactly the fields that make the entity the
+    entity it is, and nothing else.
+
+    `source_event_id` is `line-N`, which is *arrival bookkeeping* - it says where a record sat in a
+    file, not which record it was. Used alone it made two different flows in two different files of
+    the same scenario share one id (issue #38). `raw_checksum` qualifies it to the file it was read
+    from, which the ingestion adapters already compute.
+
+    Both required properties now hold: re-ingesting the same file yields the same ids (a file's
+    checksum is stable), and distinct files cannot collide. When `raw_checksum` is absent the
+    identity degrades to v1's field set; ingestion always populates it, so this affects only
+    hand-built references.
+
+    Use :func:`event_id_v1_for` to reproduce a pre-change id for historical reconciliation.
+    """
+
+    return uuid5(
+        EVENT_ID_NAMESPACE,
+        _identity(
+            source.source_type.value,
+            source.source_dataset,
+            source.scenario_id,
+            source.dataset_version,
+            source.source_event_id,
+            source.raw_checksum,
+        ),
+    )
+
+
+def _identity(*parts: object) -> str:
+    return json.dumps(list(parts), ensure_ascii=False, separators=(",", ":"), default=str)
 
 
 class SecurityEvent(FrozenSchema):

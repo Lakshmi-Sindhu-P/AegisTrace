@@ -314,11 +314,28 @@ _ISSUE_22_BUILDERS: tuple[tuple[str, Any], ...] = (
 
 # Captured before the #22 fix: per-``event_id`` value maps for the fixture. The fix must not
 # change these — only the emitted sequence.
+#
+# Re-captured for the issue #38 identity rule (`docs/identity_rule.md`), which changed `event_id`
+# so that a line number is qualified by the file it was read from. This digest covers
+# ``(event_id, values)`` pairs, so it moves with the id scheme as well as with the values.
+#
+# Both properties were verified when re-capturing, and the check below now separates them:
+#   * with ``event_id_for(..., version=1)`` patched into BOTH the parser and the validator, all
+#     three previous digests reproduce EXACTLY (48435f1e4ad4 / 7411b8bf8cb3 / 7c8a256bc0af);
+#   * the id-free value multisets are byte-identical between v1 and v2.
+# So only the identifiers changed; no feature value did.
 _ISSUE_22_EXPECTED_VALUE_DIGESTS = {
-    "network": "48435f1e4ad4",
-    "behavioral": "7411b8bf8cb3",
-    "causal": "7c8a256bc0af",
+    "network": "8a46d175c407",
+    "behavioral": "eda6a708b920",
+    "causal": "8343e2991cad",
 }
+
+
+def _id_free_value_digest(dataset: Any) -> str:
+    """Digest the feature VALUES without the identifiers, so an identity change cannot move it."""
+
+    values = sorted(json.dumps(list(record.values), default=str) for record in dataset.records)
+    return hashlib.sha256(json.dumps(values).encode("utf-8")).hexdigest()[:12]
 
 
 def _issue_22_events() -> list[Any]:
@@ -381,6 +398,12 @@ def test_issue_22_feature_values_are_unchanged_by_the_ordering_fix() -> None:
             for order in (events, reversed_events, shuffled_events)
         }
         assert digests == {_ISSUE_22_EXPECTED_VALUE_DIGESTS[name]}, name
+        # The property this test is NAMED for - that the values do not depend on input order -
+        # asserted without reference to any identifier, so a future identity-version change cannot
+        # make this test move for the wrong reason.
+        value_digests = {_id_free_value_digest(build(order)) for order in (events, reversed_events,
+            shuffled_events)}
+        assert len(value_digests) == 1, name
 
 
 def test_issue_22_ordering_is_deterministic_within_a_process() -> None:

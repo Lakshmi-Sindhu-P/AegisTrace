@@ -149,9 +149,11 @@ def _human_review(
     return HumanReview(
         review_id=review_id_for(
             subject_triage_id=subject_triage_id,  # type: ignore[arg-type]
+            subject_role=AssessorRole.EXPERT_ADJUDICATOR,
             reviewer_ref=reviewer,
             decision=decision,
-            reviewed_at=reviewed_at,
+            final_disposition="no action taken; this is a research record",
+            supersedes_review_id=supersedes,  # type: ignore[arg-type]
         ),
         subject_triage_id=subject_triage_id,  # type: ignore[arg-type]
         subject_role=AssessorRole.EXPERT_ADJUDICATOR,

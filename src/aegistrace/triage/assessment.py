@@ -109,6 +109,10 @@ def build_assessment(
 
     category = TriageCategory(str(payload["category"]).casefold())
     summary = str(payload["summary"]).strip()
+    # Extracted before identity derivation: both are identity-bearing under the rule
+    # (`docs/identity_rule.md`), because the agreement engine distinguishes on them.
+    severity = DetectionSeverity(str(payload["severity"]).casefold())
+    cited_evidence_ids = tuple(str(item) for item in payload["cited_evidence_ids"])
     return TriageAssessment(
         triage_id=triage_id_for(
             role=role.value,
@@ -116,6 +120,8 @@ def build_assessment(
             input_snapshot_digest=digest,
             category=category.value,
             summary=summary,
+            severity=severity.value,
+            cited_evidence_ids=cited_evidence_ids,
         ),
         role=role,
         evidence_bundle_id=bundle.evidence_bundle_id,
@@ -123,11 +129,11 @@ def build_assessment(
         finding_ids=(bundle.finding_id,),
         input_snapshot_digest=digest,
         category=category,
-        severity=DetectionSeverity(str(payload["severity"]).casefold()),
+        severity=severity,
         summary=summary,
         evidence_summary=str(payload["evidence_summary"]).strip(),
         confidence_statement=str(payload["confidence_statement"]).strip(),
-        cited_evidence_ids=tuple(str(item) for item in payload["cited_evidence_ids"]),
+        cited_evidence_ids=cited_evidence_ids,
         uncertainties=_text_tuple(payload, "uncertainties"),
         unsupported_claim_flags=_text_tuple(payload, "unsupported_claim_flags"),
         next_step=str(payload["next_step"]).strip(),
