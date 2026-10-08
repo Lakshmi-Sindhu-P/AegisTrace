@@ -22,6 +22,11 @@ def main() -> int:
     except (json.JSONDecodeError, ValidationError, TypeError) as error:
         print(error)
         return 1
+    # Deliberate non-empty floor (issue #16): a store with zero solutions satisfies every
+    # per-solution rule vacuously, so an empty store must fail rather than pass cleanly.
+    if not knowledge.solutions:
+        print("solution knowledge store is empty: expected at least one solution")
+        return 1
     print(
         json.dumps(
             {"path": str(args.path), "solution_count": len(knowledge.solutions)}, sort_keys=True

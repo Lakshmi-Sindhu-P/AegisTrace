@@ -63,6 +63,22 @@ def test_real_ledger_validates_cleanly() -> None:
     assert violations == []
 
 
+def test_empty_ledger_fails() -> None:
+    """Issue #16: an empty ledger must not pass vacuously."""
+
+    violations = check([])
+    assert any("empty" in violation for violation in violations)
+
+
+def test_real_ledger_passes_the_empty_floor() -> None:
+    """The non-empty floor must not reject the real, populated ledger."""
+
+    ledger = json.loads((REPO_ROOT / "docs/results_ledger.json").read_text(encoding="utf-8"))
+    registry = json.loads((REPO_ROOT / "docs/experiment_registry.json").read_text(encoding="utf-8"))
+    assert ledger["claims"]
+    assert validate_data(ledger, registry, base_dir=REPO_ROOT, require_artifacts=True) == []
+
+
 def test_bad_claim_type_fails() -> None:
     violations = check([make_claim(claim_type="MADE_UP_TYPE")])
     assert any("unknown claim_type" in v for v in violations)

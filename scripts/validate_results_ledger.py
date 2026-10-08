@@ -68,6 +68,12 @@ def validate_data(
     index = _registry_index(registry)
     claims = ledger.get("claims", [])
 
+    # Deliberate non-empty floor (issue #16): a ledger with zero claims satisfies every
+    # per-claim rule vacuously, so an empty ledger must be reported as a violation
+    # rather than a clean pass.
+    if not claims:
+        violations.append("ledger is empty: expected at least one claim")
+
     seen_ids: set[str] = set()
     for position, claim in enumerate(claims):
         raw_id = claim.get("claim_id")
