@@ -130,7 +130,10 @@ def run_spine(
     no record is invented for them.
     """
 
-    ordered_bundles = list(bundles)
+    ordered_bundles = sorted(
+        bundles,
+        key=lambda bundle: (str(bundle.evidence_bundle_id), str(bundle.finding_id)),
+    )
     run = run_independent_triage(
         bundles=ordered_bundles,
         analyst_provider=analyst_provider,

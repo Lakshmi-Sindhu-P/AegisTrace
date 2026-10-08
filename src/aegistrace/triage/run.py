@@ -321,7 +321,12 @@ def run_independent_triage(
         max_total_calls=_int_from(budget_map, "max_total_calls"),
     )
 
-    ordered_bundles = list(bundles)
+    # Canonical order matches build_corpus so a run over the corpus's bundle set selects its
+    # entries[:max_bundles_per_run] regardless of caller order.
+    ordered_bundles = sorted(
+        bundles,
+        key=lambda bundle: (str(bundle.evidence_bundle_id), str(bundle.finding_id)),
+    )
     selected = ordered_bundles[: budget.max_bundles_per_run]
     bundle_overflow = len(ordered_bundles) > budget.max_bundles_per_run
 

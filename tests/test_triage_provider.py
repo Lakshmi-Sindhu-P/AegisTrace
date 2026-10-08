@@ -510,7 +510,9 @@ def test_budget_exhaustion_aborts_rather_than_raises() -> None:
 
 def test_assessment_budget_exhaustion_aborts_rather_than_raises() -> None:
     bundles = [_bundle("10.0.0.1"), _bundle("10.0.0.2")]
-    responses = _recorded_responses(bundles[0])
+    responses: dict[tuple[AssessorRole, str], str] = {}
+    for bundle in bundles:
+        responses.update(_recorded_responses(bundle))
     analyst = RecordedTriageProvider(_recorded_descriptor(), responses, CREATED_AT)
     adjudicator = RecordedTriageProvider(_adjudicator_recorded_descriptor(), responses, CREATED_AT)
 
@@ -530,10 +532,12 @@ def test_assessment_budget_exhaustion_aborts_rather_than_raises() -> None:
 
 def test_bundle_overflow_is_enforced_and_recorded() -> None:
     bundles = [_bundle("10.0.0.1"), _bundle("10.0.0.2")]
-    first_responses = _recorded_responses(bundles[0])
-    analyst = RecordedTriageProvider(_recorded_descriptor(), first_responses, CREATED_AT)
+    responses: dict[tuple[AssessorRole, str], str] = {}
+    for bundle in bundles:
+        responses.update(_recorded_responses(bundle))
+    analyst = RecordedTriageProvider(_recorded_descriptor(), responses, CREATED_AT)
     adjudicator = RecordedTriageProvider(
-        _adjudicator_recorded_descriptor(), first_responses, CREATED_AT
+        _adjudicator_recorded_descriptor(), responses, CREATED_AT
     )
 
     run = run_independent_triage(
