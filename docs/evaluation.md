@@ -287,6 +287,32 @@ cases missed by all three models, concentrated in Scenario 10/51 and enriched fo
 low-destination/port-diversity mixed-protocol flows. This supports a representation study with
 richer temporal/host context before any fusion; no fusion or new model family was added.
 
+### Corrected interpretation of the operating-point recall (2026-10-08)
+
+The `0.2685` operating-point recall above must be read together with the population and policy that
+produced it. See [phase3_evaluation_diagnosis.md](phase3_evaluation_diagnosis.md) and Issue #8.
+
+- The pooled labeled validation subset is 67.8% malicious (112,001 of 165,276) because unknown rows
+  are excluded and capture 51 alone contributes 106,352 malicious labels. Only 5.7% of the 2,886,156
+  validation rows carry an authoritative label.
+- At the frozen threshold `0.20`, the balanced Random Forest records precision `0.9903` and recall
+  `0.9949` (TP 111,426, FP 1,092, FN 575); HistGradientBoosting records precision `0.9954` and recall
+  `0.9931`. These settings are excluded only because they exceed the workload cap.
+- Because the labeled population is 67.8% positive, the `<= 200` alerts-per-1,000-labeled-flows cap
+  permits flagging at most 20% of labeled rows and therefore caps recall at `20 / 67.8 = 29.5%` even
+  for a perfect ranker. The recorded `0.2685` is about 91% of that ceiling.
+- `alerts_per_1000_labeled_flows` is population-dependent and behaves as a recall ceiling when the
+  labeled set is mostly positive. Future operating-point reports must state the labeled prevalence and
+  the absolute alert volume alongside the ratio.
+- The genuine unresolved uncertainty is the unlabeled majority: 186,269 alerts at the frozen
+  threshold across a 455,303-row pool have no authoritative class and must not be reported as false
+  positives.
+
+This interpretation does not change the recorded thresholds, metrics, or artifacts. It changes what
+the recall figure may be claimed to mean. The frozen policy remains in place; a capture-grouped
+held-out measurement at the frozen threshold, reporting unknown-label workload separately, is the
+recommended next step and is not yet run.
+
 ## Causal host/time representation study
 
 Issue #2 evaluates feature version `1.2.0` with the same RF/HGB/SVM families and operating policy.
