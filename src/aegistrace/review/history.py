@@ -37,7 +37,13 @@ def append_review(history: ReviewHistory, review: HumanReview) -> ReviewHistory:
     elif review.supersedes_review_id is not None:
         raise ValueError("the first review in a history cannot supersede anything")
 
-    return history.model_copy(update={"reviews": (*history.reviews, review)})
+    # Constructed from fields rather than `model_copy`, so `ReviewHistory.validate_subjects_match`
+    # actually runs. The manual check above stays as defence in depth, but it is no longer the only
+    # guarantee: the schema is (issue #42).
+    return ReviewHistory(
+        subject_triage_id=history.subject_triage_id,
+        reviews=(*history.reviews, review),
+    )
 
 
 def current_review(history: ReviewHistory) -> HumanReview | None:

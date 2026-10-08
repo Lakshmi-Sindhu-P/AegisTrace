@@ -36,6 +36,7 @@ from aegistrace.ingestion.ctu13 import _parse_timestamp, parse_ctu13_binetflow
 from aegistrace.ingestion.iot23 import _event_from_record as iot23_event_from_record
 from aegistrace.ingestion.iot23 import _event_to_row as iot23_event_to_row
 from aegistrace.schemas.detections import DetectionSeverity
+from aegistrace.schemas.events import event_id_for
 from aegistrace.schemas.findings import Finding
 
 FIXTURE_PATH = "data/fixtures/ctu13/scenario_11.binetflow"
@@ -99,8 +100,11 @@ def test_network_feature_record_rejects_wrong_value_count() -> None:
 
 def test_network_features_reject_missing_scenario_id() -> None:
     events = _fixture_events()
+    # Re-derive the id from the changed source, so the event is schema-valid and the test still
+    # exercises the FEATURE BUILDER's refusal rather than the event schema's (issue #42).
+    orphan_source = events[0].source.model_copy(update={"scenario_id": None})
     orphaned = events[0].model_copy(
-        update={"source": events[0].source.model_copy(update={"scenario_id": None})}
+        update={"source": orphan_source, "event_id": event_id_for(orphan_source)}
     )
     with pytest.raises(ValueError, match="CTU-13 feature extraction requires scenario_id"):
         build_ctu13_features((orphaned,))
@@ -130,10 +134,11 @@ def test_causal_dataset_rejects_noncanonical_feature_order() -> None:
 
 def test_causal_features_reject_mixed_scenarios() -> None:
     events = _fixture_events()
+    other_source = events[0].source.model_copy(update={"scenario_id": "other"})
     mixed = (
         *events,
         events[0].model_copy(
-            update={"source": events[0].source.model_copy(update={"scenario_id": "other"})}
+            update={"source": other_source, "event_id": event_id_for(other_source)}
         ),
     )
     with pytest.raises(ValueError, match="causal features require one scenario per dataset"):

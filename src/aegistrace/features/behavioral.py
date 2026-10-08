@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid5
+from uuid import UUID
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -23,7 +23,12 @@ from pydantic import Field, field_validator
 
 from aegistrace.features.network import FEATURE_NAMES, base_feature_values
 from aegistrace.schemas.common import FrozenSchema, NonEmptyText, SchemaVersion
-from aegistrace.schemas.events import Ctu13FlowDetails, GroundTruthLabel, SecurityEvent
+from aegistrace.schemas.events import (
+    Ctu13FlowDetails,
+    GroundTruthLabel,
+    SecurityEvent,
+    event_id_for,
+)
 
 BEHAVIORAL_FEATURE_VERSION = "1.1.0"
 BEHAVIORAL_FEATURE_NAMES: tuple[str, ...] = (
@@ -237,7 +242,12 @@ def audit_prior_window_causality(events: Iterable[SecurityEvent]) -> bool:
     )
     future_event = last.model_copy(
         update={
-            "event_id": uuid5(last.event_id, "future-audit"),
+            # Derived from the source, exactly as `causal.py` does. This previously used a uuid5 of
+            # the event id, which produced an event whose id did NOT match its own source -
+            # something `SecurityEvent` explicitly forbids. It survived only because `model_copy`
+            # skipped validation (issue #42); now that it re-validates, the schema catches it, and
+            # the correct derivation is the one that satisfies the invariant.
+            "event_id": event_id_for(future_source),
             "source": future_source,
             "observed_at": last.observed_at + timedelta(seconds=1),
         }

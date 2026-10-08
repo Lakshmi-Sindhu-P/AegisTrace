@@ -29,6 +29,7 @@ from aegistrace.features.network import (
     write_feature_parquet,
 )
 from aegistrace.ingestion.ctu13 import parse_ctu13_binetflow
+from aegistrace.schemas.events import event_id_for
 
 FIXTURE_PATH = Path("data/fixtures/ctu13/scenario_11.binetflow")
 
@@ -90,10 +91,14 @@ def test_behavioral_features_are_prior_only_and_scenario_local() -> None:
 
 def test_behavioral_features_reject_mixed_scenarios() -> None:
     result = parse_ctu13_binetflow(FIXTURE_PATH, ingested_at=datetime(2026, 9, 21, 1, tzinfo=UTC))
+    # The source is changed AND the id re-derived from it. Changing the source alone produces an
+    # event whose id no longer matches its own source, which SecurityEvent forbids - it used to slip
+    # through because `model_copy` skipped validation (issue #42).
+    other_source = result.events[0].source.model_copy(update={"scenario_id": "other"})
     mixed = (
         *result.events,
         result.events[0].model_copy(
-            update={"source": result.events[0].source.model_copy(update={"scenario_id": "other"})}
+            update={"source": other_source, "event_id": event_id_for(other_source)}
         ),
     )
     try:
