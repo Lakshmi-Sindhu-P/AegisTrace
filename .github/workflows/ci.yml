@@ -52,5 +52,12 @@ jobs:
       - name: Validate phase 3 evidence and sealed-scenario policy
         run: uv run python scripts/validate_phase3_evidence.py
 
+      # Fails if the A/B protocol is not still frozen pre-data, or if any registered run
+      # that consumed the provider is dated before the protocol was frozen. Written now,
+      # while the provider is blocked, because a protocol written after the outputs is
+      # worth nothing.
+      - name: Validate the LLM A/B preregistration
+        run: uv run python scripts/validate_preregistration.py
+
       # Agent traces live under the gitignored .context/ directory, so they are not
       # present in CI and are validated locally instead.

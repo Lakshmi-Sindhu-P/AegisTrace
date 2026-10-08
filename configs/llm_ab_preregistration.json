@@ -1,0 +1,172 @@
+{
+  "schema_version": "1.0.0",
+  "preregistration_id": "aegistrace-llm-ab-triage-prereg-1.0.0",
+  "frozen_at": "2026-10-09T00:00:00Z",
+  "status": "FROZEN_PRE_DATA",
+  "purpose": "Fix the analysis protocol for the independently frozen LLM A/B triage before any model output exists. This artifact records the decision rule, the single primary metric, the refutation condition, and the observed pre-data state. It does not execute anything.",
+  "governing_freeze": {
+    "path": "configs/triage_provider_freeze.json",
+    "freeze_version": "1.0.0",
+    "note": "The provider freeze governs whether any run may happen at all. Until its status is an approved egress status, no remote assessor can run and this protocol cannot be evaluated."
+  },
+  "vocabulary_refs": {
+    "categories": [
+      "likely_malicious",
+      "suspicious",
+      "likely_benign",
+      "insufficient_evidence"
+    ],
+    "disagreement_reasons": [
+      "category_mismatch",
+      "severity_mismatch",
+      "evidence_divergence",
+      "one_side_insufficient_evidence",
+      "failed_assessment"
+    ],
+    "comparison_contract": "aegistrace.schemas.triage.TriageComparison (agreement, agreement_score, escalation_recommended, shared_evidence_ids, left_only_evidence_ids, right_only_evidence_ids)",
+    "agreement_engine": "aegistrace.triage.agreement.compare_assessments",
+    "agreement_score_definition": "The Jaccard overlap of the two assessments' cited evidence ids: len(shared) / len(union), where shared is the intersection of cited_evidence_ids and union is their union. It is defined as 0.0 when neither side cites anything. The engine that computes this is deterministic code (no model call), so the same two records always yield the same score."
+  },
+  "hypothesis": {
+    "id": "H1",
+    "statement": "On the deterministic, label-free triage corpus, two mutually blind assessors instantiated from two distinct model families will cite substantially overlapping evidence on most bundles, so that the mean per-bundle Jaccard overlap of cited evidence ids across a complete 20-bundle run is at least 0.50.",
+    "falsifiable": true,
+    "direction": "Higher mean agreement_score supports H1; lower values refute it."
+  },
+  "primary_metric": [
+    {
+      "name": "mean_per_bundle_agreement_score",
+      "kind": "continuous",
+      "range": "0.0 to 1.0 inclusive",
+      "unit": "dimensionless Jaccard overlap",
+      "definition": "The unweighted arithmetic mean of TriageComparison.agreement_score over exactly one comparison per bundle, for the 20 bundles of a complete run. agreement_score is len(shared_evidence_ids) / (len(shared_evidence_ids) + len(left_only_evidence_ids) + len(right_only_evidence_ids)) as produced by compare_assessments, and is 0.0 when no evidence id is cited by either side. The value is read from the stored comparison records; it is never recomputed, reweighted, or recomputed over a different denominator by hand.",
+      "aggregation": "unweighted arithmetic mean over the 20 per-bundle comparison records",
+      "direction_of_support": "mean >= 0.50 supports H1"
+    }
+  ],
+  "decision_rule": {
+    "rule": "H1 is supported if and only if the run is complete (all 20 planned bundles assessed by both roles and one comparison stored per bundle, with no abort) AND mean_per_bundle_agreement_score >= 0.50.",
+    "support_direction": "A complete run with mean_per_bundle_agreement_score greater than or equal to the pre-registered 0.50 counts as support.",
+    "threshold": 0.50,
+    "threshold_is_a_judgement_call": true,
+    "incomplete_run_handling": "A run that aborts (call, assessment, or bundle budget exhaustion; a snapshot digest mismatch; or an output that cannot be admitted as an assessment) is not a complete run. It cannot support H1, and it does not refute H1 either: it leaves H1 unassessed. Partial results must never be aggregated over the completed subset, and the run must never be extended or restarted with a different sample to rescue the decision."
+  },
+  "refutation_condition": "H1 is refuted if a complete 20-bundle run yields mean_per_bundle_agreement_score < 0.50. In that case the pre-registered claim that the two families cite substantially overlapping evidence on most bundles is false for this corpus, this prompt version, and this pairing, and must be reported as a negative result. A partial or aborted run does not refute H1; it leaves H1 unassessed.",
+  "secondary_metrics": [
+    {
+      "name": "escalation_rate",
+      "definition": "Fraction of the 20 stored comparisons with escalation_recommended == true.",
+      "exploratory": true,
+      "role": "descriptive context for how often disagreement fired; it is not the primary result."
+    },
+    {
+      "name": "category_agreement_rate",
+      "definition": "Fraction of the 20 comparisons whose disagreement_reasons does not contain category_mismatch.",
+      "exploratory": true,
+      "role": "descriptive context for disposition-level convergence."
+    },
+    {
+      "name": "one_side_insufficient_evidence_rate",
+      "definition": "Fraction of the 20 comparisons whose disagreement_reasons contains one_side_insufficient_evidence.",
+      "exploratory": true,
+      "role": "descriptive context for asymmetric abstention."
+    },
+    {
+      "name": "mean_cited_evidence_ids_per_role",
+      "definition": "Mean count of cited_evidence_ids per admissible assessment, reported separately for triage_analyst and expert_adjudicator.",
+      "exploratory": true,
+      "role": "descriptive context for citation volume by role; it is not a quality measure."
+    },
+    {
+      "name": "failed_assessment_rate",
+      "definition": "Fraction of the 40 planned assessments that were preserved as FailedAssessment rather than admitted.",
+      "exploratory": true,
+      "role": "descriptive context for provider or schema failure; a nonzero value is a reason to distrust the primary metric, not a result."
+    }
+  ],
+  "sample_plan": {
+    "corpus": "The deterministic label-free corpus built by aegistrace.triage.corpus.build_corpus over the frozen evidence bundles. build_corpus sorts its input and hashes canonical JSON into corpus_digest, so the same bundles yield the same corpus on any machine. The corpus carries no ground-truth label.",
+    "bundles_per_complete_run": 20,
+    "assessments_per_complete_run": 40,
+    "comparisons_per_complete_run": 20,
+    "roles": [
+      "triage_analyst",
+      "expert_adjudicator"
+    ],
+    "smoke_test": "One bundle, both roles, run first as a plumbing check. The smoke test validates that both roles echo the same snapshot digest and that a comparison record is produced. Its output is excluded from the primary and secondary metrics and is not one of the 20 bundles. The smoke test never substitutes for the protocol: it validates structure, not an assessor.",
+    "stopping_rule": "The run stops when all 20 planned bundles have been assessed by both roles, or earlier when any frozen abort condition fires (provider error rate above 20 percent, any snapshot digest mismatch between the two roles, any response that would be stored without citations, or budget exhaustion). The run is never extended after partial results are inspected.",
+    "budget_ref": "configs/triage_provider_freeze.json budget block: max_bundles_per_run 20, max_assessments_per_run 40, max_retries_per_assessment 1, max_total_calls 60. The smoke test consumes 2 of the 60 calls."
+  },
+  "analysis_constraints": [
+    "No threshold and no prompt may be changed after any model output is seen. TRIAGE_PROMPT_VERSION is the version recorded by the run; changing the prompt invalidates the preregistration.",
+    "No run may be extended, restarted, or re-sampled after inspecting partial results. A run that aborts is reported as incomplete and H1 stays unassessed.",
+    "No completed bundle may be dropped from the primary metric for any reason, including an inconvenient category or an abstention. Abstention (insufficient_evidence) is a valid outcome and stays in the denominator.",
+    "The comparison engine is deterministic code, so agreement_score is reproduced from the stored records rather than recomputed with an alternative definition.",
+    "Only the single primary metric in this file decides H1. Secondary metrics are exploratory context and must never be presented as the primary result.",
+    "The two assessor configurations, prompt version, temperature, and provider descriptors must be fixed and recorded before the run; the freeze artifact is the authority for them.",
+    "The 0.50 threshold is applied exactly as written. It may not be relaxed to convert a refutation into a support."
+  ],
+  "uncontrolled_confounds": [
+    "Prompt wording can shift which evidence ids an assessor chooses to cite; the shared prompt is fixed but its effect on citation style is not controlled.",
+    "Provider training-data overlap is unknown, so two families may share priors through common training corpora rather than being genuinely independent.",
+    "temperature 0.0 reduces sampling variance but does not guarantee byte-identical output across provider versions or infrastructure.",
+    "The corpus is small (20 bundles) and derived from a limited set of captures, so the mean is not a stable population estimate and no confidence interval is pre-registered.",
+    "The comparison engine scores exact evidence-id set overlap; near-identical reasoning that cites a different but equivalent id is scored as divergence.",
+    "Independence is enforced on the input contract (both roles receive the identical label-free snapshot), not on the providers' internal state.",
+    "Provider retention, logging, or training use of the egressed public-research addresses is governed outside this experiment."
+  ],
+  "not_claimed": [
+    "This experiment does not measure triage correctness. It uses no ground truth, so a higher agreement_score does not mean the assessors are right, and a lower one does not mean they are wrong.",
+    "It does not establish that the two model families are independent; it only tests whether two configurations chosen to satisfy the independence requirement behave as if they agree.",
+    "It makes no claim about analyst behaviour, over-reliance, trust calibration, or automation bias.",
+    "It makes no operational or generalization claim: 20 bundles from a limited capture set cannot support one.",
+    "It does not validate any success threshold beyond the single pre-registered 0.50 comparison; it does not establish that 0.50 is a good operating point.",
+    "It does not test the provider boundary's data handling; the egress decision remains a governance decision recorded in the freeze artifact.",
+    "A supported result is not evidence that the LLM-assessed dispositions are usable for routing or escalation in any real system."
+  ],
+  "judgement_calls": [
+    {
+      "name": "agreement_score support threshold 0.50",
+      "value": 0.50,
+      "basis": "At Jaccard 0.50 the shared citations are at least as numerous as the combined divergent citations (shared >= symmetric-difference), which is a majority-overlap convention. No published anchor for this quantity exists in the repository, so this is a stated convention and not a derived value. It is fixed here so that it cannot be chosen after seeing the mean."
+    },
+    {
+      "name": "arithmetic mean over bundles as the aggregate",
+      "value": "unweighted mean of 20 per-bundle agreement_score values",
+      "basis": "Each bundle contributes one comparison. A mean is the simplest pre-specifiable aggregate; it gives every bundle equal weight and needs no tuning. Alternatives (median, precision-weighted mean) were rejected only because they add choices that could be made post hoc."
+    },
+    {
+      "name": "aborted runs are inconclusive rather than refuting",
+      "value": "abort -> H1 unassessed",
+      "basis": "An abort is a plumbing or budget event, not an observation about assessor agreement. Treating it as refutation would let an infrastructure failure masquerade as a scientific negative."
+    },
+    {
+      "name": "20-bundle sample size",
+      "value": 20,
+      "basis": "Inherited from configs/triage_provider_freeze.json (max_bundles_per_run 20). It is a budget bound chosen for cost control, not a statistical power calculation, so no power claim is made."
+    },
+    {
+      "name": "the two-family pairing is assumed to satisfy independence",
+      "value": "assumption, not tested here",
+      "basis": "The freeze artifact requires two distinct model families. This protocol takes the eventual owner-designated pairing as satisfying that requirement and flags the assumption rather than verifying it."
+    }
+  ],
+  "pre_data_attestation": {
+    "observed_at": "2026-10-09T00:00:00Z",
+    "observation_method": "Read configs/triage_provider_freeze.json, searched data/ for stored TriageAssessment or TriageComparison records, and inspected docs/experiment_registry.json for any run referencing a provider or triage run. Every field below is the value observed at that read, not an assumption.",
+    "provider_freeze_status": "BLOCKED_HUMAN",
+    "measured_spend": "0 - nothing has been sent",
+    "measured_spend_source_note": "The freeze file records this exact string at budget.measured_spend (the only measured_spend key in the file; it is not under egress_policy). The numeric spend is zero and no request has been made.",
+    "provider_runs_completed": 0,
+    "provider_runs_completed_definition": "Count of completed runs against a REMOTE (egress-requiring) provider. It is zero. One offline run_independent_triage demonstration exists (scripts/run_offline_spine_demo.py -> data/evaluation/triage_spine/offline_spine_demo.json) and used only deterministic offline stub providers with network_egress \"none\" and providers_configured false, so it is not a provider run.",
+    "assessments_on_disk": 0,
+    "assessments_on_disk_definition": "Count of persisted TriageAssessment or TriageComparison records in the repository. It is zero. The offline spine demo artifact stores a routing record (tier, review_count, snapshot_digest), not an assessment, and no assessment or comparison record is written anywhere because run_independent_triage never writes to disk.",
+    "corroborating_evidence": [
+      "configs/triage_provider_freeze.json status BLOCKED_HUMAN and budget.measured_spend \"0 - nothing has been sent\"",
+      "configs/triage_provider_freeze.json independence_requirement.status NOT ESTABLISHED",
+      "the two roles' configuration is UNSET - pending owner approval",
+      "no assessment, comparison, or triage-run file exists under data/",
+      "docs/experiment_registry.json contains no run whose command or configuration references a provider or triage run"
+    ]
+  }
+}
