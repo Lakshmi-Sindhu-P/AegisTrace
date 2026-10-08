@@ -25,9 +25,37 @@ from typing import Any
 
 from aegistrace.schemas.findings import EvidenceBundle
 
-#: The complete set of keys an assessor may observe. Kept explicit so a test can assert that the
-#: snapshot contains nothing beyond the evidence bundle itself.
-SNAPSHOT_FIELDS: frozenset[str] = frozenset(EvidenceBundle.model_fields)
+#: The complete set of keys an assessor may observe.
+#:
+#: **This is a literal on purpose, and it must stay one.** It was previously written as
+#: ``frozenset(EvidenceBundle.model_fields)``, which made it a projection of the very thing it is
+#: supposed to constrain: ``input_snapshot`` is ``bundle.model_dump(mode="json")``, so both sides of
+#: every assertion moved together and the guard could not fail when the bundle grew. A new field
+#: carrying internal context would have been shipped to both assessors with the suite still green
+#: (issue #36).
+#:
+#: Spelling the names out means adding a field to
+#: :class:`~aegistrace.schemas.findings.EvidenceBundle`
+#: fails ``test_snapshot_keys_are_exactly_the_evidence_bundle_fields`` until someone consciously
+#: admits it here. That failure is the point: it is the one moment a human decides whether a new
+#: field may reach a third-party provider.
+SNAPSHOT_FIELDS: frozenset[str] = frozenset(
+    {
+        "schema_version",
+        "evidence_bundle_id",
+        "bundle_version",
+        "finding_id",
+        "detection_ids",
+        "event_summaries",
+        "observed_values",
+        "score_references",
+        "feature_versions",
+        "external_findings",
+        "missing_context",
+        "limitations",
+        "created_at",
+    }
+)
 
 
 def input_snapshot(bundle: EvidenceBundle) -> dict[str, Any]:

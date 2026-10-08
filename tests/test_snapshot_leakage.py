@@ -117,8 +117,64 @@ def test_snapshot_keys_are_exactly_the_evidence_bundle_fields() -> None:
 
     snapshot = input_snapshot(_bundle())
 
+    unexpected = sorted(set(snapshot) - SNAPSHOT_FIELDS)
+    assert not unexpected, (
+        f"the snapshot carries {unexpected}, which are not on the assessor allowlist. If a new "
+        "EvidenceBundle field is intentionally allowed to reach a provider, add it to "
+        "SNAPSHOT_FIELDS in src/aegistrace/triage/snapshot.py; otherwise do not put it on "
+        "the bundle."
+    )
     assert set(snapshot) == set(SNAPSHOT_FIELDS)
-    assert set(snapshot) == set(EvidenceBundle.model_fields)
+
+
+def test_the_allowlist_guard_can_actually_fail() -> None:
+    """Prove the guard is falsifiable, not a restatement of pydantic's behaviour.
+
+    Issue #36: ``SNAPSHOT_FIELDS`` used to be ``frozenset(EvidenceBundle.model_fields)`` while
+    ``input_snapshot`` is ``bundle.model_dump(mode="json")``. Both sides of the check therefore
+    moved together and no added field could ever be caught - a full green suite while a new field
+    shipped to both assessors. This test supplies a bundle with an extra field and asserts the guard
+    *fires*,
+    so the property is falsifiable rather than assumed.
+    """
+
+    class BundleWithExtraField(EvidenceBundle):
+        curator_notes: str = "internal SOC context: see ticket 4417"
+
+    widened = BundleWithExtraField(**(_bundle().model_dump(mode="json")))
+    snapshot = input_snapshot(widened)
+
+    # The guard detects exactly the added key and nothing else.
+    assert set(snapshot) - SNAPSHOT_FIELDS == {"curator_notes"}
+    assert set(snapshot) != SNAPSHOT_FIELDS
+    # ...and the value really would have reached the provider.
+    assert snapshot["curator_notes"] == "internal SOC context: see ticket 4417"
+
+
+def test_snapshot_fields_is_a_literal_not_a_projection() -> None:
+    """The allowlist must not be derived from the schema it constrains (issue #36)."""
+
+    # A literal is a stable, auditable object; a projection re-computes from the live schema.
+    assert frozenset(
+        {
+            "schema_version",
+            "evidence_bundle_id",
+            "bundle_version",
+            "finding_id",
+            "detection_ids",
+            "event_summaries",
+            "observed_values",
+            "score_references",
+            "feature_versions",
+            "external_findings",
+            "missing_context",
+            "limitations",
+            "created_at",
+        }
+    ) == SNAPSHOT_FIELDS
+    # If SNAPSHOT_FIELDS is a projection, these are the same set by construction and this is
+    # vacuous; kept only as a companion to the concrete assertion above.
+    assert set(EvidenceBundle.model_fields) == SNAPSHOT_FIELDS
 
 
 def test_ground_truth_label_stops_at_the_bundle_boundary() -> None:
