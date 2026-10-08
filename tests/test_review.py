@@ -239,6 +239,62 @@ def test_a_failing_machine_check_raises_a_tier_but_never_lowers_one() -> None:
     )
 
 
+def test_zero_assessments_cannot_reach_tier_a() -> None:
+    bundle = _bundle()
+    comparison, _ = _agreed(bundle)
+
+    assignment = classify_tier(bundle=bundle, comparison=comparison, assessments=())
+
+    assert assignment.tier is ReviewTier.D_INSUFFICIENT_EVIDENCE
+    assert assignment.tier is not ReviewTier.A_MACHINE_CHECK
+    assert assignment.reasons
+
+
+def test_one_assessment_cannot_reach_tier_a() -> None:
+    bundle = _bundle()
+    comparison, (analyst, _) = _agreed(bundle)
+
+    assignment = classify_tier(bundle=bundle, comparison=comparison, assessments=(analyst,))
+
+    assert assignment.tier is ReviewTier.C_EXPERT_JUDGMENT
+    assert assignment.tier is not ReviewTier.A_MACHINE_CHECK
+
+
+def test_two_agreeing_assessments_still_reach_tier_a() -> None:
+    bundle = _bundle()
+    comparison, assessments = _agreed(bundle)
+
+    assignment = classify_tier(bundle=bundle, comparison=comparison, assessments=assessments)
+
+    assert comparison.agreement is True
+    assert assignment.tier is ReviewTier.A_MACHINE_CHECK
+
+
+def test_all_assessments_admissible_fails_for_an_empty_set() -> None:
+    bundle = _bundle()
+
+    checks = machine_checks(bundle, ())
+    check = next(item for item in checks if item.check_name == "all_assessments_admissible")
+
+    assert check.passed is False
+    assert "zero" in check.detail
+
+
+def test_a_failing_machine_check_cannot_lower_a_filled_gap_tier() -> None:
+    bundle = _bundle()
+    comparison, (analyst, _) = _agreed(bundle)
+    forged = analyst.model_copy(update={"cited_evidence_ids": ("ghost-evidence",)})
+    assert isinstance(forged, TriageAssessment)
+
+    one = classify_tier(bundle=bundle, comparison=comparison, assessments=(forged,))
+    none = classify_tier(bundle=bundle, comparison=comparison, assessments=())
+
+    assert one.tier is ReviewTier.C_EXPERT_JUDGMENT
+    assert none.tier is ReviewTier.D_INSUFFICIENT_EVIDENCE
+    assert any(not item.passed for item in one.machine_checks)
+    assert any(not item.passed for item in none.machine_checks)
+
+
 def _review(
     subject_id,
     reviewer: str,

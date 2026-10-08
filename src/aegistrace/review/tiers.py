@@ -44,8 +44,12 @@ def machine_checks(
     checks = [
         MachineCheck(
             check_name="all_assessments_admissible",
-            passed=len(admissible) == len(assessments),
-            detail=f"{len(admissible)} of {len(assessments)} assessments were admissible",
+            passed=bool(assessments) and len(admissible) == len(assessments),
+            detail=(
+                "zero assessments were supplied, so admissibility cannot be confirmed"
+                if not assessments
+                else f"{len(admissible)} of {len(assessments)} assessments were admissible"
+            ),
         ),
         MachineCheck(
             check_name="citations_resolve_to_bundle_evidence",
@@ -89,6 +93,16 @@ def classify_tier(
     if abstained:
         tier = ReviewTier.D_INSUFFICIENT_EVIDENCE
         reasons.append("every admissible assessment abstained; there is no conclusion to confirm")
+    elif not admissible:
+        # Issue #13: with no admissible assessment there is no conclusion to confirm, so this is
+        # Tier D on the same ground as mutual abstention.
+        tier = ReviewTier.D_INSUFFICIENT_EVIDENCE
+        reasons.append("no admissible assessment exists; there is no conclusion to confirm")
+    elif len(admissible) == 1:
+        # Issue #13 design choice, not a derivation: a single unconfirmed opinion needs expertise,
+        # not a signature, so one admissible assessment cannot qualify for the cheapest tier.
+        tier = ReviewTier.C_EXPERT_JUDGMENT
+        reasons.append("only one admissible assessment exists; it is unconfirmed by a second role")
     elif DisagreementReason.FAILED_ASSESSMENT in comparison.disagreement_reasons:
         tier = ReviewTier.C_EXPERT_JUDGMENT
         reasons.append("an assessor failed, so any conclusion rests on incomplete input")
