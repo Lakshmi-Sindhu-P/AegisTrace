@@ -15,12 +15,7 @@ from __future__ import annotations
 
 from aegistrace.schemas.findings import EvidenceBundle
 from aegistrace.schemas.review import MachineCheck, ReviewTier, TierAssignment
-from aegistrace.schemas.triage import (
-    DisagreementReason,
-    TriageAssessment,
-    TriageCategory,
-    TriageComparison,
-)
+from aegistrace.schemas.triage import TriageAssessment, TriageCategory, TriageComparison
 from aegistrace.triage.assessment import AssessmentOutcome
 from aegistrace.triage.snapshot import bundle_evidence_ids
 
@@ -111,10 +106,18 @@ def classify_tier(
         # not a signature, so one admissible assessment cannot qualify for the cheapest tier.
         tier = ReviewTier.C_EXPERT_JUDGMENT
         reasons.append("only one admissible assessment exists; it is unconfirmed by a second role")
-    elif DisagreementReason.FAILED_ASSESSMENT in comparison.disagreement_reasons:
-        tier = ReviewTier.C_EXPERT_JUDGMENT
-        reasons.append("an assessor failed, so any conclusion rests on incomplete input")
     elif comparison.disagreement_reasons:
+        # NOTE (issue #41): a branch testing `FAILED_ASSESSMENT in disagreement_reasons` used to sit
+        # here, reading as the rule that fires when an assessor failed. It was unreachable:
+        # `compare_assessments` adds FAILED_ASSESSMENT only when a side is a FailedAssessment, and a
+        # failed assessment is never admissible, so either `not admissible` or
+        # `len(admissible) == 1` above consumed the case first. It never changed the tier - only the
+        # recorded reason,
+        # which therefore blamed "only one admissible assessment exists" instead of the failure.
+        # Removing it cannot change any tier; a failed assessor still lands here on the generic
+        # disagreement path. Recording the failure in `reasons` is the better message and is left as
+        # an owner decision, because it changes the audit text:
+        # `docs/identity_decision_register.md`.
         tier = ReviewTier.C_EXPERT_JUDGMENT
         joined = ", ".join(reason.value for reason in comparison.disagreement_reasons)
         reasons.append(

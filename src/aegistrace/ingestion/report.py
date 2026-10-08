@@ -37,8 +37,21 @@ class IngestionReport(FrozenSchema):
     input_path: NonEmptyText
     raw_checksum: Sha256
     report_generated_at: datetime
+    #: Data rows read, EXCLUDING the header.
     rows_seen: int = Field(ge=0)
+    #: Rows that became canonical events. Always ``<= rows_seen``.
     accepted_rows: int = Field(ge=0)
+    #: **The number of recorded issues, not the number of rejected data rows.**
+    #:
+    #: This is the established contract, chosen deliberately and pinned by
+    #: ``test_invalid_header_and_missing_label_are_rejected`` (one invalid header plus one data row
+    #: gives ``rejected_rows == 2``), and the CLI depends on it: ``fail_on_rejects`` exits non-zero
+    #: when this is non-zero, so a malformed header *must* count here.
+    #:
+    #: Consequence worth knowing before trusting the arithmetic: ``accepted_rows + rejected_rows``
+    #: may exceed ``rows_seen``, because a structural problem that is not a data row is still an
+    #: issue. It also duplicates ``len(issues)``. Renaming it would be a breaking change and is
+    #: tracked in `docs/identity_decision_register.md`; the meaning is documented here instead.
     rejected_rows: int = Field(ge=0)
     duplicate_event_ids: int = Field(ge=0)
     duplicate_source_records: int = Field(default=0, ge=0)

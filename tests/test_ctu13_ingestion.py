@@ -197,3 +197,41 @@ def test_direct_normal_and_botnet_labels_and_timezone_argument(tmp_path: Path) -
     assert result.events[0].ground_truth_label is GroundTruthLabel.MALICIOUS
     assert result.events[1].ground_truth_label is GroundTruthLabel.BENIGN
     assert result.events[0].observed_at.isoformat() == "2011-08-18T15:39:35.087798+00:00"
+
+
+def test_issue_39_rejected_rows_counts_issues_not_data_rows(tmp_path: Path) -> None:
+    """Pin the real meaning of `rejected_rows`, so the arithmetic is not mistaken for a bug.
+
+    Issue #39 was filed as an over-count. It is not: `rejected_rows` is defined as the number of
+    recorded issues, which is why an invalid header is counted here even though it is not a data
+    row. The CLI relies on exactly this via `fail_on_rejects`. The name is what misleads, so the
+    contract is pinned here and documented on the field.
+    """
+
+    invalid_header = tmp_path / "invalid-header.binetflow"
+    invalid_header.write_text("not,a,ctu,header\n1,2,3,4\n")
+
+    report = parse_ctu13_binetflow(
+        invalid_header, ingested_at=INGESTED_AT, report_generated_at=INGESTED_AT
+    ).report
+
+    # The established contract: one issue per problem, and one header plus one row is two problems.
+    assert report.rejected_rows == len(report.issues) == 2
+    assert report.rows_seen == 1, "rows_seen counts DATA rows, excluding the header"
+    # The consequence the field's name hides. Asserted so a future change to it is a decision.
+    assert report.accepted_rows + report.rejected_rows != report.rows_seen
+    assert report.accepted_rows + report.rejected_rows > report.rows_seen
+
+
+def test_issue_39_valid_header_with_no_data_rows_is_self_consistent(tmp_path: Path) -> None:
+    """The arithmetic DOES hold whenever no structural problem is reported."""
+
+    header_only = tmp_path / "header-only.binetflow"
+    header_only.write_text(FIXTURE_PATH.read_text().splitlines()[0] + "\n")
+
+    report = parse_ctu13_binetflow(
+        header_only, ingested_at=INGESTED_AT, report_generated_at=INGESTED_AT
+    ).report
+
+    assert (report.rows_seen, report.accepted_rows, report.rejected_rows) == (0, 0, 0)
+    assert report.accepted_rows + report.rejected_rows == report.rows_seen

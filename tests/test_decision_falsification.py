@@ -432,9 +432,10 @@ def test_spine_refuses_record_with_a_review() -> None:
     review = HumanReview(
         review_id=review_id_for(
             subject_triage_id=record.review_history.subject_triage_id,
+            subject_role=AssessorRole.TRIAGE_ANALYST,
             reviewer_ref="falsification-suite",
             decision=ReviewDecision.CONFIRM,
-            reviewed_at=CREATED_AT,
+            final_disposition="confirmed",
         ),
         subject_triage_id=record.review_history.subject_triage_id,
         subject_role=AssessorRole.TRIAGE_ANALYST,
@@ -456,3 +457,38 @@ def test_spine_refuses_record_with_a_review() -> None:
 
     with pytest.raises(RuntimeError, match="never append a review"):
         _assert_history_open(closed)
+
+
+# --- Issue 41: the removed FAILED_ASSESSMENT branch -----------------------------------------
+
+
+def test_issue_41_a_failed_assessor_reaches_tier_c_without_the_dead_branch() -> None:
+    """Removing the unreachable branch changed no tier, and this pins what is recorded instead.
+
+    The deleted branch tested `FAILED_ASSESSMENT in disagreement_reasons`, but `compare_assessments`
+    adds that reason only when a side is a `FailedAssessment`, and a failed assessment is never
+    admissible - so `not admissible` or `len(admissible) == 1` always fired first. It could never
+    change the tier, only the recorded reason, which is why its removal is behaviour-preserving.
+    """
+
+    bundle = _bundle()
+    analyst = _assess(bundle, AssessorRole.TRIAGE_ANALYST)
+    failed = _assess(bundle, AssessorRole.EXPERT_ADJUDICATOR, cited_evidence_ids=[])
+    assert isinstance(failed, FailedAssessment), "an uncited assessment must be refused"
+
+    comparison = compare_assessments(analyst, failed, created_at=CREATED_AT)
+    assert DisagreementReason.FAILED_ASSESSMENT in comparison.disagreement_reasons
+
+    assignment = classify_tier(
+        bundle=bundle, comparison=comparison, assessments=(analyst, failed)
+    )
+
+    # The tier a failed assessor produces: expert judgement, never the cheapest tier.
+    assert assignment.tier is ReviewTier.C_EXPERT_JUDGMENT
+    # The reason actually recorded. The removed branch would have said "an assessor failed, so any
+    # conclusion rests on incomplete input"; the surviving rule explains the same fact differently.
+    assert any("only one admissible assessment exists" in reason for reason in assignment.reasons)
+    assert not any("an assessor failed" in reason for reason in assignment.reasons), (
+        "the unreachable branch is gone; if this fires, the reason text was reinstated "
+        "deliberately and this test must be updated as a decision rather than a fix"
+    )
