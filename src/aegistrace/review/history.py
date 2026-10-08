@@ -1,9 +1,15 @@
 """Append-only review history.
 
 The architecture requires that corrections create new history rather than overwriting earlier
-records. That is enforced here rather than left to convention: a review may only supersede the most
-recent review, and duplicate identifiers are rejected. The result is a linear chain in which the
-last entry is unambiguously current and every earlier belief remains readable.
+records. That is enforced in two places: :class:`~aegistrace.schemas.review.ReviewHistory` validates
+the chain on every construction path, and this module's :func:`append_review` additionally rejects a
+bad append *before* building a new history. A review may only supersede the most recent review, and
+duplicate identifiers are rejected. The result is a linear chain in which the last entry is
+unambiguously current and every earlier belief remains readable.
+
+The schema check is the one that matters for stored records: durable histories are read back with
+``ReviewHistory.model_validate(...)``, which never calls :func:`append_review`. Before that check
+existed, a history whose links dangled or forked loaded without complaint.
 """
 
 from __future__ import annotations

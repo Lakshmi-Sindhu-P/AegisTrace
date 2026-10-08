@@ -217,7 +217,14 @@ class HumanReview(FrozenSchema):
 
 
 class ReviewHistory(FrozenSchema):
-    """The append-only chain of reviews for one triage subject."""
+    """The append-only chain of reviews for one triage subject.
+
+    The chain is validated here rather than left to :func:`aegistrace.review.history.append_review`,
+    because that helper is bypassed by the path that reads durable records:
+    ``ReviewHistory.model_validate(...)`` from stored JSON. A history whose links dangled or forked
+    used to load without complaint and present a broken lineage as authoritative. The rules are the
+    ones the helper has always enforced, so every history it can build still validates.
+    """
 
     schema_version: SchemaVersion = REVIEW_HISTORY_SCHEMA_VERSION
     subject_triage_id: UUID
@@ -228,6 +235,32 @@ class ReviewHistory(FrozenSchema):
         for review in self.reviews:
             if review.subject_triage_id != self.subject_triage_id:
                 raise ValueError("every review in a history must share the subject triage id")
+        return self
+
+    @model_validator(mode="after")
+    def validate_chain_is_linear(self) -> ReviewHistory:
+        """Require one linear chain, so the last entry is unambiguously current.
+
+        Enforced on every construction path. The messages match ``append_review``'s, which keeps its
+        checks as defence in depth rather than the only guarantee (same shape as issue #42).
+        """
+
+        seen: set[UUID] = set()
+        previous: HumanReview | None = None
+        for review in self.reviews:
+            if review.review_id in seen:
+                raise ValueError("a review with this identity is already recorded")
+            seen.add(review.review_id)
+
+            if previous is None:
+                if review.supersedes_review_id is not None:
+                    raise ValueError("the first review in a history cannot supersede anything")
+            else:
+                if review.supersedes_review_id is None:
+                    raise ValueError("a later review must supersede the most recent review")
+                if review.supersedes_review_id != previous.review_id:
+                    raise ValueError("a review may only supersede the most recent review")
+            previous = review
         return self
 
 
