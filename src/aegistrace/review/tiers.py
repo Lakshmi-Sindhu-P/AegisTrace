@@ -33,6 +33,8 @@ def machine_checks(
     allowed = bundle_evidence_ids(bundle)
     admissible = [item for item in assessments if isinstance(item, TriageAssessment)]
 
+    snapshot_digests = {item.input_snapshot_digest for item in admissible}
+
     unresolved = sorted(
         {
             str(cited)
@@ -53,17 +55,23 @@ def machine_checks(
         ),
         MachineCheck(
             check_name="citations_resolve_to_bundle_evidence",
-            passed=not unresolved,
+            passed=bool(admissible) and not unresolved,
             detail=(
-                "every cited identifier resolves to evidence in the bundle"
+                "no citations were available to resolve; zero admissible assessments were supplied"
+                if not admissible
+                else "every cited identifier resolves to evidence in the bundle"
                 if not unresolved
                 else f"unresolved citations: {', '.join(unresolved)}"
             ),
         ),
         MachineCheck(
             check_name="assessors_saw_identical_input",
-            passed=len({item.input_snapshot_digest for item in admissible}) <= 1,
-            detail="all admissible assessments share one input snapshot digest",
+            passed=bool(admissible) and len(snapshot_digests) <= 1,
+            detail=(
+                "no admissible assessments were compared; identical input cannot be confirmed"
+                if not admissible
+                else "all admissible assessments share one input snapshot digest"
+            ),
         ),
         MachineCheck(
             check_name="bundle_states_its_own_gaps",

@@ -274,10 +274,36 @@ def test_all_assessments_admissible_fails_for_an_empty_set() -> None:
     bundle = _bundle()
 
     checks = machine_checks(bundle, ())
-    check = next(item for item in checks if item.check_name == "all_assessments_admissible")
 
-    assert check.passed is False
-    assert "zero" in check.detail
+    # Assert the exact expected outcome of every check, so a future check cannot pass vacuously
+    # on an empty assessment set without this test failing.
+    assert {check.check_name: check.passed for check in checks} == {
+        "all_assessments_admissible": False,
+        "citations_resolve_to_bundle_evidence": False,
+        "assessors_saw_identical_input": False,
+        "bundle_states_its_own_gaps": True,
+    }
+    details = {check.check_name: check.detail for check in checks}
+    assert "zero" in details["all_assessments_admissible"]
+    assert "no citations were available to resolve" in details[
+        "citations_resolve_to_bundle_evidence"
+    ]
+    assert "no admissible assessments were compared" in details["assessors_saw_identical_input"]
+
+
+def test_two_assessment_case_passes_every_machine_check() -> None:
+    bundle = _bundle()
+    comparison, assessments = _agreed(bundle)
+
+    checks = machine_checks(bundle, assessments)
+
+    assert comparison.agreement is True
+    assert {check.check_name: check.passed for check in checks} == {
+        "all_assessments_admissible": True,
+        "citations_resolve_to_bundle_evidence": True,
+        "assessors_saw_identical_input": True,
+        "bundle_states_its_own_gaps": True,
+    }
 
 
 def test_a_failing_machine_check_cannot_lower_a_filled_gap_tier() -> None:
