@@ -70,22 +70,79 @@ _TRIAGE_PROMPT = (
 )
 
 
+def _independence_finding(
+    analyst: ProviderDescriptor, adjudicator: ProviderDescriptor
+) -> tuple[bool, str, str | None]:
+    """The single implementation of the independence question.
+
+    Returns ``(established, basis, colliding_field)``. ``colliding_field`` names the
+    identity-bearing field the two descriptors share (``"model_id"`` or ``"model_family"``),
+    or ``None`` when the run is not established for a non-identity reason (the offline
+    stand-in case). Both the guard and the recorded determination read this function so
+    their criteria cannot drift apart.
+    """
+
+    if (
+        analyst.kind is not ProviderKind.REMOTE
+        or adjudicator.kind is not ProviderKind.REMOTE
+    ):
+        # The basis stays the mechanical stand-in reason for *any* offline pair, but two roles
+        # handed the very same descriptor is still one stand-in answering twice, so it carries an
+        # identity collision the guard refuses. Distinct offline descriptors stay runnable.
+        return (
+            False,
+            "synthetic offline providers (stub or recorded replay) are mechanical stand-ins that "
+            "do not reason, so a run over them cannot establish assessor independence",
+            "descriptor" if analyst == adjudicator else None,
+        )
+    if analyst.model_id == adjudicator.model_id:
+        return (
+            False,
+            f"both providers share model_id {analyst.model_id!r}; one model answering twice under "
+            "two labels is not independence, however the family is labelled",
+            "model_id",
+        )
+    if analyst.model_family == adjudicator.model_family:
+        return (
+            False,
+            f"both providers share model_family {analyst.model_family!r}; two prompts over one "
+            "model family measure the prompt, not the evidence",
+            "model_family",
+        )
+    return (
+        True,
+        f"distinct remote descriptors with distinct model_ids ({analyst.model_id!r} vs "
+        f"{adjudicator.model_id!r}) and distinct model families ({analyst.model_family!r} vs "
+        f"{adjudicator.model_family!r}); independence rests on the descriptors' own declaration "
+        "and is not proof of the transport",
+        None,
+    )
+
+
 def assert_assessors_independent(
     analyst: ProviderDescriptor, adjudicator: ProviderDescriptor
 ) -> None:
     """Refuse, with a raised error, a run where one assessor is asked to answer twice.
 
-    Structural equality is the test. Two identical descriptors mean the same provider, model, and
-    family produced both sides, so any agreement between them measures the prompt and the model
-    rather than two independent readings of the evidence.
+    The verdict comes from :func:`_independence_finding`, the same implementation the recorded
+    determination uses, so the guard cannot enforce a weaker criterion than the record claims. The
+    refusal is scoped to a genuine identity collision: two descriptors that share a ``model_id``
+    (or are the identical descriptor) are the same assessor however they are named or their family
+    is labelled. A pair that merely shares a ``model_family`` while declaring distinct models is
+    left runnable but is recorded as not-established, and *distinct* offline stand-ins likewise run
+    under a determination that never claims independence.
     """
 
-    if analyst != adjudicator:
+    established, _basis, colliding_field = _independence_finding(analyst, adjudicator)
+    if established or colliding_field is None or colliding_field == "model_family":
         return
+    if colliding_field == "model_id":
+        shared = f"share model_id {analyst.model_id!r}"
+    else:
+        shared = f"are the identical descriptor {analyst.name!r}"
     raise ValueError(
-        f"analyst and adjudicator providers share the descriptor {analyst.name!r} "
-        f"(model {analyst.model_id!r}); one assessor answering twice under two labels is not "
-        "independence, so the run is refused"
+        f"analyst and adjudicator providers {shared} (colliding field: {colliding_field}); one "
+        "assessor answering twice under two labels is not independence, so the run is refused"
     )
 
 
@@ -94,32 +151,15 @@ def _independence_determination(
 ) -> tuple[bool, str]:
     """Decide, and explain in plain language, whether assessor independence is established.
 
-    Independence requires two *distinct* descriptors that also do not share a ``model_family``. An
-    offline stub or recorded-replay provider is a mechanical, non-intelligent stand-in, so a run
-    over any offline descriptor is permitted but can never establish independence.
+    Independence requires two *distinct* descriptors that share neither ``model_id`` nor
+    ``model_family``; the ``model_id`` is compared too, because one model answering twice is not
+    independence however the family is labelled. An offline stub or recorded-replay provider is a
+    mechanical, non-intelligent stand-in, so a run over any offline descriptor is permitted but can
+    never establish independence.
     """
 
-    if (
-        analyst.kind is not ProviderKind.REMOTE
-        or adjudicator.kind is not ProviderKind.REMOTE
-    ):
-        return (
-            False,
-            "synthetic offline providers (stub or recorded replay) are mechanical stand-ins that "
-            "do not reason, so a run over them cannot establish assessor independence",
-        )
-    if analyst.model_family == adjudicator.model_family:
-        return (
-            False,
-            f"both providers share model_family {analyst.model_family!r}; two prompts over one "
-            "model family measure the prompt, not the evidence",
-        )
-    return (
-        True,
-        f"distinct remote descriptors with distinct model families "
-        f"({analyst.model_family!r} vs {adjudicator.model_family!r}); independence rests on the "
-        "descriptors' own declaration and is not proof of the transport",
-    )
+    established, basis, _colliding_field = _independence_finding(analyst, adjudicator)
+    return established, basis
 
 
 def assert_provider_permitted(descriptor: ProviderDescriptor, freeze_status: str) -> None:
