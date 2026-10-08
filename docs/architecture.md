@@ -120,7 +120,7 @@ unknown labels are excluded from supervised fitting and metrics.
 
 ### Amended multi-model detection design
 
-**Status: APPROVED INTENT / DESIGN — not implemented.** The final detector is not assumed to be a
+**Status: CURRENT / IMPLEMENTED for the model-family benchmark harness; APPROVED INTENT / DESIGN for the final detector composition.** The harness that trains and scores candidate families over scenario-aware splits is implemented in `src/aegistrace/evaluation/model_family.py` with the runner `scripts/run_phase3_model_family_benchmark.py`; no multi-model composition is deployed. The final detector is not assumed to be a
 single universal malicious-versus-benign classifier. Candidate specialists run in parallel over the
 same provenance-preserving evidence, and their outputs remain separately inspectable. A model family
 is included only when it answers a clear question, survives scenario-aware validation, and exposes a
@@ -154,7 +154,7 @@ component signals. A fused score is an investigation-priority signal, not a grou
 
 ### Findings, verification, and independent AI review
 
-**Status: APPROVED INTENT / DESIGN — not implemented.** Raw alerts will be grouped into findings by
+**Status: CURRENT / IMPLEMENTED for finding aggregation, evidence bundles, claim verification, and independent triage/adjudication; PLANNED, NOT IMPLEMENTED for the LLM-provider triage run, which is blocked on provider credentials and demonstrated assessor independence.** Raw alerts will be grouped into findings by
 deterministic host/time/destination/port relationships. Aggregation must preserve every contributing
 event ID, detector output, score, rule, and feature version. Research labels may evaluate an
 aggregator but may not drive grouping or queue priority.

@@ -122,19 +122,19 @@ docs/
     solution_knowledge.json
     learning_notes/
 src/aegistrace/
-    ingestion/
-    schemas/
-    validation/
-    features/
-    detection/
-    verification/
-    triage/
-    review/
-    evaluation/
-    provenance/
-    storage/
-    api/
-    ui/
+    ingestion/          (implemented)
+    schemas/            (implemented)
+    validation/         (PLANNED, NOT IMPLEMENTED - directory absent)
+    features/           (implemented)
+    detection/          (implemented)
+    verification/       (implemented)
+    triage/             (implemented)
+    review/             (implemented)
+    evaluation/         (implemented)
+    provenance/         (PLANNED, NOT IMPLEMENTED - directory absent)
+    storage/            (PLANNED, NOT IMPLEMENTED - directory absent)
+    api/                (PLANNED, NOT IMPLEMENTED - directory absent)
+    ui/                 (PLANNED, NOT IMPLEMENTED - directory absent)
 data/
     raw/
     interim/
