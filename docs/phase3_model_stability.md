@@ -99,7 +99,7 @@ and low port diversity (95.1%). Their protocol mix is 95.2% ICMP, 0.2% TCP, and
 
 The corrected reference has 68,353 malicious validation cases missed by all three
 learned models: 614 in Scenario 4, 744 in Scenario 5, 65,619 in Scenario 10,
-and 1,376 in Scenario 12. This differs from the earlier 3,192 headline because
+and 1,376 in Scenario 12. This differs from the earlier 3,192 headline (pre-repair record; the corrected value is 68,353) because
 the earlier artifact mixed HGB's old disagreement threshold with its corrected
 zero-alert operating metrics. The repair is recorded in the artifact's
 `artifact_repair` section. The residual cases are dominated by short flows,

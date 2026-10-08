@@ -56,8 +56,12 @@ Accuracy may be reported but cannot be the headline metric.
 - Deduplicate first.
 - Prefer scenario-group holdout for generalization claims.
 - Use temporal splits for within-scenario experiments where timestamps support them.
-- CTU-13 Phase 3 uses Scenario 11 for training, Scenario 5 for validation, and Scenario 7 as the
-  untouched test scenario. Each split is a complete capture boundary.
+- CTU-13 Phase 3 historical three-scenario baseline (accepted baseline record): Scenario 11 for
+  training, Scenario 5 for validation, and Scenario 7 as the untouched test scenario. Each split is a
+  complete capture boundary.
+- Current validation-only pool used by the improvement, hardening, model-family, stability, and
+  causal passes: training captures CTU-Malware-Capture-Botnet-52 and -47; validation captures -46,
+  -53, -45, and -51; sealed capture -48 / Scenario 7 remains the untouched final test.
 - Fit all preprocessing on the training partition only.
 - Keep one untouched final test partition after model selection begins.
 - Exclude `unknown` labels from supervised fitting and metrics. Do not convert `Background` or
@@ -276,7 +280,7 @@ score scale; unknown rows are not supervised labels or policy denominators. RF s
 was the strongest compliant standalone detector (pooled PR-AUC `0.999589`, recall `0.2685`). HGB
 had higher PR-AUC (`0.999738`) but no feasible threshold under both constraints; its explicit
 zero-alert fallback is not an operational success. SVM selected `0.58`, but its unique malicious
-coverage was 155 cases in only two of four scenarios.
+coverage was 13,576 cases in only two of four scenarios.
 
 After correcting the HGB-derived disagreement sections, residual analysis found 68,353 malicious
 cases missed by all three models, concentrated in Scenario 10/51 and enriched for short,
