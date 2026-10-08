@@ -158,6 +158,15 @@ class TriageComparison(FrozenSchema):
 
     This record is separate from both assessments and retains their raw outputs, so a reader can
     always reconstruct what each side actually said before any comparison was computed.
+
+    **What "left" and "right" mean, stated explicitly.** The comparison engine orders the two
+    assessments by *role*, not by argument order, so that a comparison is identical whichever way
+    the pair is passed in. ``left`` therefore means ``roles[0]`` and ``right`` means ``roles[1]``
+    -- which in practice is the ``triage_analyst`` first and the ``expert_adjudicator`` second.
+    These field names do **not** refer to the ``left`` and ``right`` parameters of
+    :func:`aegistrace.triage.agreement.compare_assessments`; passing the adjudicator as that
+    function's ``left`` argument still populates ``left_only_evidence_ids`` with the analyst's
+    unique citations. ``roles`` is stored alongside and gives the mapping.
     """
 
     schema_version: SchemaVersion = TRIAGE_COMPARISON_SCHEMA_VERSION
@@ -169,8 +178,19 @@ class TriageComparison(FrozenSchema):
     agreement_score: float = Field(ge=0, le=1)
     disagreement_reasons: tuple[DisagreementReason, ...] = ()
     shared_evidence_ids: tuple[NonEmptyText, ...] = ()
-    left_only_evidence_ids: tuple[NonEmptyText, ...] = ()
-    right_only_evidence_ids: tuple[NonEmptyText, ...] = ()
+    left_only_evidence_ids: tuple[NonEmptyText, ...] = Field(
+        default=(),
+        description=(
+            "evidence cited only by roles[0] (the triage analyst); NOT the argument named 'left'"
+        ),
+    )
+    right_only_evidence_ids: tuple[NonEmptyText, ...] = Field(
+        default=(),
+        description=(
+            "evidence cited only by roles[1] (the expert adjudicator); "
+            "NOT the argument named 'right'"
+        ),
+    )
     escalation_recommended: bool
     raw_output_references: tuple[RawResponseReference, ...] = ()
     validator_results: tuple[NonEmptyText, ...] = ()

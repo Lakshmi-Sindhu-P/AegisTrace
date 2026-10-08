@@ -68,7 +68,14 @@ def _agreement_score(left: frozenset[str], right: frozenset[str]) -> float:
 def compare_assessments(
     left: AssessmentOutcome, right: AssessmentOutcome, *, created_at: datetime
 ) -> TriageComparison:
-    """Compare two independent assessments of the same bundle and record any disagreement."""
+    """Compare two independent assessments of the same bundle and record any disagreement.
+
+    The two arguments are **not** positional in the result. They are re-ordered by role before any
+    comparison is computed, so ``comparison_id`` and every derived field are identical whichever way
+    the pair is passed. In the returned record ``left`` therefore means ``roles[0]`` and ``right``
+    means ``roles[1]`` -- in practice the ``triage_analyst`` first -- rather than the arguments
+    named ``left`` and ``right`` here. See :class:`~aegistrace.schemas.triage.TriageComparison`.
+    """
 
     if left.evidence_bundle_id != right.evidence_bundle_id:
         raise ValueError("cannot compare assessments of different evidence bundles")
