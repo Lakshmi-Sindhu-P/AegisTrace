@@ -1,0 +1,102 @@
+{
+  "freeze_version": "1.0.0",
+  "status": "BLOCKED_HUMAN",
+  "frozen_at": "2026-10-08T20:15:00Z",
+  "decision_ref": "Lakshmi-Sindhu-P/AegisTrace#11",
+  "purpose": "Freeze the exact provider and model configuration for the independent A/B triage so the run is reproducible, bounded, and governance-reviewed before any data leaves the machine. This artifact records the configuration without executing it.",
+  "frozen_detector_policy": {
+    "path": "configs/phase3_frozen_policy.json",
+    "modified": false,
+    "note": "The detector policy and threshold are not touched by triage. Triage consumes frozen evidence bundles only."
+  },
+  "assessment_roles": {
+    "triage_analyst": {
+      "role": "independent first assessor",
+      "isolation": "receives only the label-free EvidenceBundle snapshot",
+      "configuration": "UNSET - pending owner approval"
+    },
+    "expert_adjudicator": {
+      "role": "independent second assessor, blind to the first assessment",
+      "isolation": "receives the identical snapshot digest as the triage analyst",
+      "configuration": "UNSET - pending owner approval"
+    }
+  },
+  "independence_requirement": {
+    "requirement": "The two assessors must not share model priors. Two prompts over one model is not independence; agreement between them would measure the model, not the assessors.",
+    "minimum_bar": "two distinct model families, or one model with an independently sourced second assessor",
+    "observed_catalog": {
+      "providers": [
+        "opencode-go",
+        "opencode-go-2"
+      ],
+      "note": "Both providers advertise the identical five models; they are mirrors, not independent sources.",
+      "models": [
+        "space-bunny-free",
+        "mimo-v2.6-flash",
+        "longcat-2.5-preview-free",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-flash"
+      ],
+      "verified_working": [
+        "deepseek-v4-flash",
+        "deepseek-v4.1-flash"
+      ],
+      "verified_working_note": "Both working models are the same family, so they cannot serve as the two independent assessors.",
+      "reasoning_effort_support": "low, high, max for both DeepSeek models; not advertised for the other three"
+    },
+    "status": "NOT ESTABLISHED"
+  },
+  "egress_policy": {
+    "decision": "REVIEWED - content is defensible, transport is not yet approved",
+    "audited_at": "2026-10-08T20:10:00Z",
+    "audit_method": "built a real EvidenceBundle from the committed fixture and inspected the exact canonical snapshot a provider would receive",
+    "snapshot_size_bytes_observed": 1685,
+    "permitted_payload": "the canonical label-free EvidenceBundle snapshot produced by aegistrace.triage.snapshot.input_snapshot, which is the only object an assessor may receive",
+    "prohibited_payloads": [
+      "ground-truth labels or label sources",
+      "raw CTU-13 flow records or packet payloads",
+      "sealed examination captures",
+      "hostnames, credentials, or tokens",
+      "repository file paths or internal identifiers beyond the snapshot fields"
+    ],
+    "findings": [
+      "No ground-truth label reaches the snapshot. The bundle's missing_context field states that labels are deliberately excluded, which is a statement about labels rather than a label value.",
+      "No raw payload, no file path, and no scenario identifier reaches the snapshot.",
+      "IP addresses do reach the snapshot as evidence, which is inherent: host identity is the grouping key. CTU-13 is a public, published research dataset, so these addresses are already public."
+    ],
+    "residual_risk": "Egress of public research-dataset addresses to a third-party provider is a governance decision, not a technical one. The provider's retention and training-use terms must be recorded before the first call.",
+    "transport_status": "NOT IMPLEMENTED - no client exists"
+  },
+  "budget": {
+    "basis": "bounds the experiment so a runaway loop cannot consume resources before a human reviews interim output",
+    "max_bundles_per_run": 20,
+    "max_assessments_per_run": 40,
+    "max_retries_per_assessment": 1,
+    "max_total_calls": 60,
+    "abort_conditions": [
+      "any provider error rate above 20 percent",
+      "any snapshot digest mismatch between the two roles",
+      "any response that would be stored without citations",
+      "budget exhausted before completion"
+    ],
+    "measured_spend": "0 - nothing has been sent"
+  },
+  "unmet_conditions": [
+    {
+      "condition": "provider access",
+      "detail": "The repository has no LLM client and no credential path. pyproject.toml declares only pyarrow, pydantic, and scikit-learn; no HTTP or LLM client exists anywhere in src/; and src/aegistrace/config.py:68 states that only non-secret settings are supported. Adding a client and a credential path is a new dependency and secret-handling decision that requires owner approval.",
+      "status": "BLOCKED_HUMAN"
+    },
+    {
+      "condition": "assessor independence",
+      "detail": "Every model available in this environment resolves to one provider mirrored twice, and the only two models verified to work are variants of the same family. No pairing currently satisfies the independence requirement.",
+      "status": "BLOCKED_HUMAN"
+    }
+  ],
+  "smoke_test": {
+    "required_before_full_run": true,
+    "protocol": "one bundle, both roles, verify the returned payloads are admissible assessments, verify both roles report the identical snapshot digest, and verify the comparison record is produced",
+    "status": "NOT RUN - blocked on both unmet conditions above"
+  },
+  "next_action_for_owner": "Designate the two assessor configurations and approve a credential path, or approve deferring the run. The corpus, schemas, isolation, and agreement engine are complete and independent of this decision."
+}
