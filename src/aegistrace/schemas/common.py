@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from typing import Annotated, Any, Self
 
@@ -50,3 +50,22 @@ def normalize_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("timestamp must include a timezone")
     return value.astimezone(UTC)
+
+
+def require_uniform_scenario(scenarios: Iterable[str], *, collection: str) -> None:
+    """Require every record in a scenario-local collection to name the same scenario.
+
+    The feature builders already refuse a mixed dataset, but they are bypassed by the path that
+    reads stored records: ``Dataset.model_validate(...)``. A dataset spanning two captures would
+    otherwise load and be pooled as though it were scenario-local, which is the assumption every
+    per-scenario split in the evaluation rests on.
+
+    ``collection`` names the feature family so the message matches the builder's.
+    """
+
+    distinct = set(scenarios)
+    if len(distinct) > 1:
+        raise ValueError(
+            f"{collection} features require one scenario per dataset; "
+            f"found {len(distinct)}: {sorted(distinct)}"
+        )

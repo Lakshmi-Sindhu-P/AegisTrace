@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -36,11 +36,12 @@ ANALYST = AssessorRole.TRIAGE_ANALYST
 ADJUDICATOR = AssessorRole.EXPERT_ADJUDICATOR
 
 
-def _comparison(roles: tuple[AssessorRole, ...], assessment_count: int) -> TriageComparison:
-    """Build a comparison with `assessment_count` assessments and the given roles."""
+def _comparison_for_ids(
+    assessment_ids: tuple[UUID, ...], *, roles: tuple[AssessorRole, ...]
+) -> TriageComparison:
+    """Build a comparison over exactly these assessment identifiers."""
 
     bundle_id = uuid4()
-    assessment_ids = tuple(uuid4() for _ in range(assessment_count))
     return TriageComparison(
         comparison_id=comparison_id_for(
             evidence_bundle_id=bundle_id, assessment_ids=assessment_ids
@@ -52,6 +53,14 @@ def _comparison(roles: tuple[AssessorRole, ...], assessment_count: int) -> Triag
         agreement_score=1.0,
         escalation_recommended=False,
         created_at=CREATED_AT,
+    )
+
+
+def _comparison(roles: tuple[AssessorRole, ...], assessment_count: int) -> TriageComparison:
+    """Build a comparison with `assessment_count` distinct assessments and the given roles."""
+
+    return _comparison_for_ids(
+        tuple(uuid4() for _ in range(assessment_count)), roles=roles
     )
 
 
@@ -86,6 +95,37 @@ def test_two_assessments_may_not_share_a_role() -> None:
 
     with pytest.raises(ValidationError, match="distinct role"):
         _comparison((ADJUDICATOR, ADJUDICATOR), 2)
+
+
+def test_the_same_assessment_may_not_be_recorded_twice() -> None:
+    """The engine calls this "an assessment with itself"; the schema must refuse it too.
+
+    Checked independently of `roles`, because the repeated-identifier shape is incoherent even when
+    no roles were recorded - the early return for the unrecorded case must not skip it.
+    """
+
+    repeated = uuid4()
+    with pytest.raises(ValidationError, match="assessment_ids must be distinct"):
+        _comparison_for_ids((repeated, repeated), roles=())
+
+    with pytest.raises(ValidationError, match="assessment_ids must be distinct"):
+        _comparison_for_ids((repeated, repeated), roles=(ANALYST, ADJUDICATOR))
+
+    # A control: the same shape with two different identifiers is accepted.
+    assert len(_comparison_for_ids((uuid4(), uuid4()), roles=()).assessment_ids) == 2
+
+
+def test_a_repeated_assessment_cannot_be_loaded_from_json() -> None:
+    """Forge the repeat in stored bytes, since it cannot be built directly."""
+
+    valid = _comparison((ANALYST, ADJUDICATOR), 2)
+    payload = json.loads(valid.model_dump_json())
+    payload["assessment_ids"] = [payload["assessment_ids"][0]] * 2
+
+    assert len(set(payload["assessment_ids"])) == 1, "the probe must forge a repeat"
+
+    with pytest.raises(ValidationError, match="assessment_ids must be distinct"):
+        TriageComparison.model_validate(payload)
 
 
 def test_a_misaligned_record_cannot_be_loaded_from_json() -> None:

@@ -19,10 +19,15 @@ from uuid import UUID
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from aegistrace.features.network import FEATURE_NAMES, base_feature_values
-from aegistrace.schemas.common import FrozenSchema, NonEmptyText, SchemaVersion
+from aegistrace.schemas.common import (
+    FrozenSchema,
+    NonEmptyText,
+    SchemaVersion,
+    require_uniform_scenario,
+)
 from aegistrace.schemas.events import (
     Ctu13FlowDetails,
     GroundTruthLabel,
@@ -65,7 +70,12 @@ class BehavioralFeatureRecord(FrozenSchema):
 
 
 class BehavioralFeatureDataset(FrozenSchema):
-    """Immutable scenario-local behavioral feature collection."""
+    """Immutable scenario-local behavioral feature collection.
+
+    "Scenario-local" is enforced here, not only by the builder: stored datasets are read back with
+    ``model_validate``, which never calls the builder, so a dataset spanning two captures used to
+    load and be pooled as though it were one capture's worth of evidence.
+    """
 
     feature_version: SchemaVersion = BEHAVIORAL_FEATURE_VERSION
     feature_names: tuple[NonEmptyText, ...] = BEHAVIORAL_FEATURE_NAMES
@@ -77,6 +87,13 @@ class BehavioralFeatureDataset(FrozenSchema):
         if value != BEHAVIORAL_FEATURE_NAMES:
             raise ValueError("feature_names must match the versioned canonical order")
         return value
+
+    @model_validator(mode="after")
+    def require_single_scenario(self) -> BehavioralFeatureDataset:
+        require_uniform_scenario(
+            (record.scenario_id for record in self.records), collection="behavioral"
+        )
+        return self
 
     def supervised_records(self) -> tuple[BehavioralFeatureRecord, ...]:
         return tuple(

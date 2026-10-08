@@ -13,6 +13,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from pydantic import ValidationError
 
 from aegistrace import spine as spine_module
 from aegistrace.detection.evidence import build_evidence_bundle
@@ -227,7 +228,10 @@ def test_spine_raises_if_a_review_were_present(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(spine_module, "new_history", _pre_reviewed_history)
 
-    with pytest.raises(RuntimeError, match="never append a review"):
+    # The spine used to build the record and then check it with `_assert_history_open`. Now
+    # `SpineRecord` refuses to exist in that state, so the refusal happens at construction - which
+    # is strictly earlier, and covers the read path the helper never saw.
+    with pytest.raises(ValidationError, match="never append a review"):
         _run((_bundle(),))
 
 

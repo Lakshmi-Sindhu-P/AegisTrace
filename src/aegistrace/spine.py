@@ -7,8 +7,13 @@ the agreement engine, tier classification, and a review history — and then it 
 **The hard invariant.** The spine never appends a review, never decides anything, and never acts.
 A record it produces ends with an *empty* review history awaiting a human. There is no autonomous
 blocking model in this project; a component that reviewed its own output would violate the central
-promise outright, so that rule is enforced in code by :func:`_assert_history_open`, which raises
-:class:`RuntimeError` if any review is present on a record the spine is about to return.
+promise outright, so :class:`SpineRecord` refuses to exist in that state at all.
+
+That rule used to be a separate `_assert_history_open` helper called just before the spine returned
+a record. The helper could never fire once `SpineRecord` began enforcing the same invariant itself,
+because a record carrying a review can no longer be constructed, validated, or copied into
+existence. It was removed rather than left as a guard no test could execute; the schema is now the
+single guarantee, and it guards the read path too.
 
 The spine also performs no I/O. It calls the triage orchestrator once over the whole bundle set —
 the run identity and the budget belong to the run, not to each bundle — and returns an immutable
@@ -22,7 +27,7 @@ from datetime import datetime
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from aegistrace.review.history import new_history
 from aegistrace.review.tiers import classify_tier
@@ -41,7 +46,12 @@ SPINE_ID_NAMESPACE = uuid5(NAMESPACE_URL, f"{_BASE}/spine-records/v1")
 
 
 class SpineRecord(FrozenSchema):
-    """One auditable path from evidence to an *unreviewed* tier assignment."""
+    """One auditable path from evidence to an *unreviewed* tier assignment.
+
+    "Unreviewed" is enforced here, and this is the only place it is enforced. A spine record is
+    read back from stored artifacts with `model_validate`, so a check that lived only in the builder
+    would not have covered the path that matters.
+    """
 
     schema_version: SchemaVersion = SPINE_SCHEMA_VERSION
     spine_id: UUID
@@ -59,6 +69,23 @@ class SpineRecord(FrozenSchema):
     @classmethod
     def normalize_created_at(cls, value: datetime) -> datetime:
         return normalize_utc(value)
+
+    @model_validator(mode="after")
+    def require_history_is_open(self) -> SpineRecord:
+        """A spine record must end awaiting a human, so its review history must be empty.
+
+        This is the single guarantee. It covers construction, `model_validate` of a stored record,
+        and `model_copy(update=...)` alike, so no separate builder-side check is needed or useful:
+        a record carrying a review cannot be brought into existence in the first place.
+        """
+
+        if self.review_history.reviews:
+            raise ValueError(
+                "the spine must never append a review: "
+                f"record {self.spine_id} carries {len(self.review_history.reviews)} review(s); "
+                "a spine record must end with an empty review history awaiting a human"
+            )
+        return self
 
 
 def spine_id_for(
@@ -78,21 +105,6 @@ def spine_id_for(
         SPINE_ID_NAMESPACE,
         f"{evidence_bundle_id}:{comparison_id}:{snapshot_digest}",
     )
-
-
-def _assert_history_open(record: SpineRecord) -> None:
-    """Refuse, loudly, any spine record that already carries a review.
-
-    The spine ends at a human. This is executable code rather than a convention so the guarantee
-    cannot be lost by a future caller forgetting it.
-    """
-
-    if record.review_history.reviews:
-        raise RuntimeError(
-            "the spine must never append a review: "
-            f"record {record.spine_id} carries {len(record.review_history.reviews)} review(s); "
-            "a spine record must end with an empty review history awaiting a human"
-        )
 
 
 def _assessment_pair(
@@ -171,7 +183,6 @@ def run_spine(
             review_history=new_history(comparison.comparison_id),
             synthetic=run.synthetic,
         )
-        _assert_history_open(record)
         records.append(record)
 
     return tuple(records)

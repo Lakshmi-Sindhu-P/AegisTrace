@@ -233,6 +233,15 @@ class TriageComparison(FrozenSchema):
         An empty ``roles`` is the "not recorded" state and stays legal.
         """
 
+        # Checked before the early return below, because it does not depend on `roles`: two
+        # entries naming the same assessment mean the same assessor was recorded twice, which is
+        # the shape `compare_assessments` refuses as "an assessment with itself".
+        if len(set(self.assessment_ids)) != len(self.assessment_ids):
+            raise ValueError(
+                "assessment_ids must be distinct: a comparison needs two independent assessments, "
+                "and a repeated identifier means one assessment was recorded twice"
+            )
+
         if not self.roles:
             return self
         if len(self.roles) != len(self.assessment_ids):

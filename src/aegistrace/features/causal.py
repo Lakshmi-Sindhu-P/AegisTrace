@@ -20,11 +20,16 @@ from uuid import UUID
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from aegistrace.features.behavioral import BEHAVIORAL_FEATURE_NAMES
 from aegistrace.features.network import base_feature_values
-from aegistrace.schemas.common import FrozenSchema, NonEmptyText, SchemaVersion
+from aegistrace.schemas.common import (
+    FrozenSchema,
+    NonEmptyText,
+    SchemaVersion,
+    require_uniform_scenario,
+)
 from aegistrace.schemas.events import (
     Ctu13FlowDetails,
     GroundTruthLabel,
@@ -73,7 +78,12 @@ class CausalFeatureRecord(FrozenSchema):
 
 
 class CausalFeatureDataset(FrozenSchema):
-    """Immutable scenario-local causal feature collection."""
+    """Immutable scenario-local causal feature collection.
+
+    "Scenario-local" is enforced here, not only by the builder: stored datasets are read back with
+    ``model_validate``, which never calls the builder, so a dataset spanning two captures used to
+    load and be pooled as though it were one capture's worth of evidence.
+    """
 
     feature_version: SchemaVersion = CAUSAL_FEATURE_VERSION
     feature_names: tuple[NonEmptyText, ...] = CAUSAL_FEATURE_NAMES
@@ -85,6 +95,13 @@ class CausalFeatureDataset(FrozenSchema):
         if value != CAUSAL_FEATURE_NAMES:
             raise ValueError("feature_names must match the versioned causal order")
         return value
+
+    @model_validator(mode="after")
+    def require_single_scenario(self) -> CausalFeatureDataset:
+        require_uniform_scenario(
+            (record.scenario_id for record in self.records), collection="causal"
+        )
+        return self
 
     def supervised_records(self) -> tuple[CausalFeatureRecord, ...]:
         return tuple(

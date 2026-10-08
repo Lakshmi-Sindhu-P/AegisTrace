@@ -14,6 +14,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from aegistrace.detection.evidence import build_evidence_bundle
 from aegistrace.detection.findings import aggregate_findings
@@ -50,7 +51,7 @@ from aegistrace.schemas.triage import (
     ProviderMetadata,
     RawResponseReference,
 )
-from aegistrace.spine import _assert_history_open, run_spine
+from aegistrace.spine import SpineRecord, run_spine
 from aegistrace.triage import build_assessment, compare_assessments
 from aegistrace.triage.provider import (
     ProviderDescriptor,
@@ -409,6 +410,14 @@ def test_causal_causality_audit_refuses_empty_baseline() -> None:
 
 
 def test_spine_refuses_record_with_a_review() -> None:
+    """The spine ends unreviewed, and the schema is now the only thing that has to say so.
+
+    This guard used to be a `_assert_history_open` helper called just before `run_spine` returned.
+    It could never fire once `SpineRecord` enforced the same rule itself, because a record carrying
+    a review can no longer be built, validated, or copied into existence. The helper was removed
+    and the schema is checked here through every path that used to bypass it.
+    """
+
     def _stub(name: str, model_id: str) -> StubTriageProvider:
         return StubTriageProvider(
             ProviderDescriptor(
@@ -429,15 +438,19 @@ def test_spine_refuses_record_with_a_review() -> None:
         created_at=CREATED_AT,
     )[0]
 
+    # A record the spine produces is open, which is the control this test rests on.
+    assert record.review_history.reviews == ()
+
+    subject_triage_id = record.review_history.subject_triage_id
     review = HumanReview(
         review_id=review_id_for(
-            subject_triage_id=record.review_history.subject_triage_id,
+            subject_triage_id=subject_triage_id,
             subject_role=AssessorRole.TRIAGE_ANALYST,
             reviewer_ref="falsification-suite",
             decision=ReviewDecision.CONFIRM,
             final_disposition="confirmed",
         ),
-        subject_triage_id=record.review_history.subject_triage_id,
+        subject_triage_id=subject_triage_id,
         subject_role=AssessorRole.TRIAGE_ANALYST,
         reviewer_ref="falsification-suite",
         tier=ReviewTier.A_MACHINE_CHECK,
@@ -447,16 +460,18 @@ def test_spine_refuses_record_with_a_review() -> None:
         escalation_state=EscalationState.NONE,
         final_disposition="confirmed",
     )
-    closed = record.model_copy(
-        update={
-            "review_history": append_review(
-                new_history(record.review_history.subject_triage_id), review
-            )
-        }
-    )
+    closed_history = append_review(new_history(subject_triage_id), review)
+    assert closed_history.reviews, "the probe must actually close the history"
 
-    with pytest.raises(RuntimeError, match="never append a review"):
-        _assert_history_open(closed)
+    # Path 1: copying a valid record into a reviewed state (the #42 escape hatch).
+    with pytest.raises(ValidationError, match="never append a review"):
+        record.model_copy(update={"review_history": closed_history})
+
+    # Path 2: reading a reviewed record back from stored bytes.
+    payload = json.loads(record.model_dump_json())
+    payload["review_history"] = json.loads(closed_history.model_dump_json())
+    with pytest.raises(ValidationError, match="never append a review"):
+        SpineRecord.model_validate(payload)
 
 
 # --- Issue 41: the removed FAILED_ASSESSMENT branch -----------------------------------------
