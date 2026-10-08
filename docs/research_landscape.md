@@ -11,6 +11,14 @@ index snapshots, not quality judgements. General web search was unavailable duri
 irrelevant dictionary results), so **commercial product claims could not be verified** and are
 deliberately omitted rather than guessed.
 
+A second, deeper pass was run the same day using direct page and PDF fetches plus the arXiv and
+Semantic Scholar APIs (general web search remained unavailable). It confirmed the need is recognised
+outside vendor marketing — Tariq, Chhetri, Nepal & Paris, *Alert Fatigue in Security Operations
+Centres: Research Challenges and Opportunities*, ACM Computing Surveys, 2025
+(https://doi.org/10.1145/3723158), and NIST SP 800-61r3 (April 2025), which directs analysts to
+*"consider known false positives to determine whether an incident should be declared."* The deeper
+pass also surfaced prior art the OpenAlex queries missed, recorded in section 2A.
+
 ## 1. Is the need real?
 
 Alert fatigue and triage overload in security operations centres are the explicit subject of multiple
@@ -36,6 +44,21 @@ The space is **not empty**. Grouped by theme (all retrieved via OpenAlex):
 - *Auditable and Robust LLM-Based Phishing Detection via Provenance-Guided Evidence Contracts* (2026), https://doi.org/10.32604/cmc.2026.085276.
 - *Autonomous Security Alert Triage Using LLM Based Agentic Investigation with Tool Augmented Reasoning* (2026), https://doi.org/10.32628/cseit261213109.
 - *Decision-Aware Trust Signal Alignment for SOC Alert Triage* (2026), arXiv:2601.04486.
+- *CORTEX: Multi-Agent LLM Architecture for High-Stakes Alert Triage* (2025), arXiv:2510.00311 —
+  specialised agents **collaborate over shared real evidence**; the closest prior art to this
+  project's core idea, and it also releases a production SOC investigation dataset.
+- *PROVSEEK: Provenance plus Multi-Agent LLM Forensics* (2025), arXiv:2508.21323 — LLM agents fusing
+  threat-report knowledge with system provenance data; provenance plus multi-agent LLM is already
+  combined.
+- *Before You Hand Over the Wheel* / SIABENCH (2026), arXiv:2603.06422 — 135 alert-triage scenarios
+  and 25 incident workflows; the closest triage-evaluation prior art.
+- *Post-Hoc Trajectory-Risk Certification for Modular LLM-Based Security Agents* (2026),
+  arXiv:2608.05199 — conformal guarantees across staged security pipelines.
+- *A Unified Framework for Human AI Collaboration in SOCs with Trusted Autonomy* (2025),
+  arXiv:2505.23397 — five autonomy levels mapped to human-in-the-loop roles; overlaps the
+  human-oversight contribution.
+- *MESSALA: Multi-perspective Report Evaluation for SOCs* (2026), arXiv:2601.03013 —
+  multi-perspective LLM evaluation; overlaps "independent multi-model assessment".
 
 **B. Explainability and trust**
 
@@ -69,12 +92,39 @@ Three thinner areas remain, and they align with the corrected detector diagnosis
    The AegisTrace artifacts show the labelled subset was 5.7% of validation rows and 67.8% malicious,
    while 94.3% of rows carried no label. Honest reporting of that unlabelled majority — and of the
    unknown-label alert workload as a first-class result rather than a footnote — is not well served.
-2. **Independently frozen dual-role adjudication.** Many papers add an LLM reviewer or agent. Fewer
-   treat two independently frozen roles with a deterministic agreement engine that explicitly refuses
-   to equate agreement with ground truth.
+2. **Independence between assessors as the experimental variable.** This is the sharpest finding of
+   the deeper pass. Existing multi-model SOC work has agents *collaborate* over shared evidence
+   (CORTEX) or debate with sight of each other's answers, and multi-perspective evaluation work
+   (MESSALA) aggregates views. No security-triage work was found that treats *mutual blindness*
+   between frozen assessors as the variable under test, with disagreement itself as the escalation
+   signal. Whether independence improves calibration, false-positive rate, or escalation quality
+   relative to collaboration appears unmeasured.
 3. **Uncertainty routing to a human as the measured outcome.** The literature optimises detector
    scores; the human-oversight-first question — does structured uncertainty help a reviewer escalate
    correctly without eliminating expert review — is comparatively unaddressed.
+
+## 3A. Commercial and regulatory context
+
+All quotes below are from vendor pages fetched 2026-10-08; vendor metrics are unverified.
+
+- **Triage assistants:** Microsoft Security Alert Triage Agent (*"an autonomous agent… that helps
+  security teams triage alerts at scale"*), Google Security Operations (*"AI-generated case summaries
+  and recommendations on how to respond"*), Dropzone AI (*"cutting investigation time by 85% while
+  showing the evidence behind each verdict"*), Prophet Security.
+- **Autonomous responders:** Palo Alto Cortex XSIAM (*"the autonomous SOC"*), Torq (*"Every alert
+  needs attention. Not every alert needs a human."*; *"autonomously remediates critical threats"*),
+  CrowdStrike Charlotte AI.
+- **Documented risk:** Microsoft's own deployment guidance mandates audit-first testing for attack
+  surface reduction rules and requires approval before expanding past ten devices; CrowdStrike's
+  Channel File 291 root-cause analysis names *"false-positive detection volume spikes"* as a
+  deployment hazard. Marketing pushes autonomy while the same vendors' operational guidance gates it.
+- **Regulatory:** EU AI Act Article 14 places human-oversight obligations on high-risk systems and
+  names automation bias as a risk; the deeper pass found no SOC-triage study that measures analyst
+  decision quality under those conditions.
+
+Two consequences for positioning: *"human always decides"* differentiates against current vendor
+marketing but is not a universal norm, and *"evidence behind each verdict"* is already a marketing
+claim (Dropzone), so it cannot carry the contribution on its own.
 
 ## 4. Recommended framing
 
@@ -89,3 +139,11 @@ rule. The detection work already recorded is the substrate for that question, no
 - Commercial products and market sizing were **not** verified and are not claimed.
 - Search tooling was unavailable, so relevant work outside OpenAlex may have been missed.
 - Re-run with a configured search provider and full-text reading before any external claim.
+- **Measurement-validity warning:** arXiv:2511.15755, a widely quotable multi-agent LLM
+  incident-response paper, was **withdrawn by its author** after a code audit found the multi-agent
+  arm's action list was a source constant rather than model output. Its numbers must not be cited, and
+  it is direct evidence that leakage and validity controls are a live weakness in this subfield.
+- Closest prior art (CORTEX, PROVSEEK, SIABENCH, 2608.05199, 2601.03013, 2505.23397) was assessed
+  from abstracts and pages, **not full texts**; redundancy could still hide there.
+- No independent evaluation of the commercial products above was found; their capability claims are
+  unverified.
