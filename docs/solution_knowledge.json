@@ -194,6 +194,68 @@
           "supersedes": null
         }
       ]
+    },
+    {
+      "solution_id": "solution:do-not-commit-a-running-subagents-work",
+      "current_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "status": "current",
+          "originating_issue": "Lakshmi-Sindhu-P/AegisTrace#11",
+          "originating_trace": "c1f4c0b0a9e0e5b1c0dbe1cbd8f4a9c2e7c1a4b3d2e5f60718293a4b5c6d7e8f",
+          "applicable_code_version": "6736418",
+          "problem_pattern": "A delegated subagent writes its files, the parent verifies them, and the parent commits while the subagent is still running. The subagent then continues editing, leaving uncommitted diff on top of the commit that already contains its work. It observes HEAD moving underneath it, cannot tell whether another agent committed concurrently or its own work was duplicated, and reports a confusing anomaly instead of a result.",
+          "solution_principle": "Treat file existence as evidence that a subagent has STARTED, not that it has finished. Before committing a subagent's output, confirm the agent is inactive; if it is still running, wait. When a subagent's files have already been committed by the parent, say so explicitly, so the agent is not left diagnosing the parent's own side effect.",
+          "validation_refs": [
+            "the provider-boundary subagent's four deliverables existed and passed the full suite, so the parent committed them as f0f9c9f",
+            "the subagent remained running and afterwards left a 3-insertion/9-deletion formatting diff on top of that commit",
+            "the subagent reported HEAD moving from f0f9c9f to 9dc4238 as a surprising concurrent mutation, when both commits were the parent's",
+            "a separate style commit 6736418 was required to land the trailing formatting change"
+          ],
+          "evidence_refs": [
+            {
+              "kind": "repository",
+              "reference": "src/aegistrace/triage/provider.py"
+            },
+            {
+              "kind": "repository",
+              "reference": "tests/test_triage_provider.py"
+            }
+          ],
+          "supersedes": null,
+          "superseded_by": null
+        }
+      ]
+    },
+    {
+      "solution_id": "solution:verify-delegated-external-claims-then-trust-only-the-source",
+      "current_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "status": "current",
+          "originating_issue": "Lakshmi-Sindhu-P/AegisTrace#10",
+          "originating_trace": "d2e5f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4",
+          "applicable_code_version": "7458f3f",
+          "problem_pattern": "A delegated agent returns external citations with specific numbers that look authoritative and are about to be written into a research artifact. Separately, a verification attempt through a local HTTP client returns 'not found' for every citation, which appears to prove the citations are fabricated.",
+          "solution_principle": "Do both, in this order. First prove the verification METHOD works by running it against a known-good control: an empty response for every input is evidence about the client, not about the inputs, so never report 'not found' without a positive control. Then re-fetch each delegated claim and read the number in the source, because a delegated summary can place a correct figure beside an invented one.",
+          "validation_refs": [
+            "a local curl request to the arXiv API returned empty for three real identifiers AND for the known-good control 1706.03762, proving the shell had no network egress and that the 'not found' result was an artifact of the client",
+            "the same sources fetched successfully through a working path and both exist: arXiv 2307.07023 (Layman and Roden, 2023) and arXiv 2604.22001 (Moosmann et al., DIMVA'26)",
+            "the delegated report's precision medians, 0.80 versus 0.33, matched the source table exactly",
+            "the delegated report's per-alert times, 15.6 s versus 21.4 s, matched nothing in the source; the source table gives medians of 13.44 s versus 18.76 s, and 21.79 s is a maximum, not a median"
+          ],
+          "evidence_refs": [
+            {
+              "kind": "repository",
+              "reference": "docs/human_factors_evidence.md"
+            }
+          ],
+          "supersedes": null,
+          "superseded_by": null
+        }
+      ]
     }
   ]
 }
