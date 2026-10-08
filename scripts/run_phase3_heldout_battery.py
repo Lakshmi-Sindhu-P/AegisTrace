@@ -27,7 +27,6 @@ from aegistrace.evaluation.improvement import make_model
 from aegistrace.evaluation.metrics import compute_binary_metrics
 from aegistrace.features.behavioral import (
     BEHAVIORAL_FEATURE_NAMES,
-    BehavioralFeatureDataset,
     build_ctu13_behavioral_features,
     write_behavioral_feature_parquet,
 )
@@ -71,20 +70,6 @@ def load_cached(scenario_id: str, *, cache_dir: Path, sealed: str) -> tuple[Matr
     return load_feature_parquet(path)
 
 
-def _dataset_arrays(dataset: BehavioralFeatureDataset) -> tuple[Matrix, Mask, Mask]:
-    matrix = np.asarray([record.values for record in dataset.records], dtype=np.float64)
-    labels = np.asarray(
-        [record.ground_truth_label is GroundTruthLabel.MALICIOUS for record in dataset.records],
-        dtype=bool,
-    )
-    known = np.asarray(
-        [record.ground_truth_label in (GroundTruthLabel.BENIGN, GroundTruthLabel.MALICIOUS)
-         for record in dataset.records],
-        dtype=bool,
-    )
-    return matrix, labels, known
-
-
 def load_or_build_exam(
     path: Path,
     scenario_id: str,
@@ -112,33 +97,37 @@ def load_or_build_exam(
         raw_reference=path.as_posix(),
         report_generated_at=ingested_at,
     )
-    print(
-        f"[features] parsed {scenario_id}: accepted={result.report.accepted_rows} "
-        f"rejected={result.report.rejected_rows}",
-        file=sys.stderr,
-        flush=True,
-    )
-    dataset = build_ctu13_behavioral_features(result.events)
-    print(
-        f"[features] built {scenario_id}: {len(dataset.records)} records",
-        file=sys.stderr,
-        flush=True,
-    )
-    feature_dir.mkdir(parents=True, exist_ok=True)
-    write_behavioral_feature_parquet(dataset, feature_path)
-    matrix, labels, known = _dataset_arrays(dataset)
+    report = result.report
     metadata = {
         "scenario_id": scenario_id,
         "feature_path": feature_path.as_posix(),
         "source": "built",
         "source_path": path.as_posix(),
-        "source_checksum": result.report.raw_checksum,
+        "source_checksum": report.raw_checksum,
         "source_size_bytes": path.stat().st_size,
-        "rows_seen": result.report.rows_seen,
-        "accepted_rows": result.report.accepted_rows,
-        "rejected_rows": result.report.rejected_rows,
-        "label_distribution": result.report.label_distribution,
+        "rows_seen": report.rows_seen,
+        "accepted_rows": report.accepted_rows,
+        "rejected_rows": report.rejected_rows,
+        "label_distribution": report.label_distribution,
     }
+    print(
+        f"[features] parsed {scenario_id}: accepted={report.accepted_rows} "
+        f"rejected={report.rejected_rows}",
+        file=sys.stderr,
+        flush=True,
+    )
+    dataset = build_ctu13_behavioral_features(result.events)
+    record_count = len(dataset.records)
+    print(f"[features] built {scenario_id}: {record_count} records", file=sys.stderr, flush=True)
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    write_behavioral_feature_parquet(dataset, feature_path)
+    # Release the parsed events and the record objects before materializing the matrix, so the peak
+    # footprint is max(events + records, matrix) instead of their sum. Large captures otherwise
+    # exceed available memory and swap.
+    del dataset
+    del result
+    matrix, labels, known = load_feature_parquet(feature_path)
+    print(f"[features] loaded {scenario_id}: {record_count} rows", file=sys.stderr, flush=True)
     return matrix, labels, known, metadata
 
 

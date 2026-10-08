@@ -121,3 +121,36 @@ valid secondary check where timestamps support it.
   label above; this consumes the one-time Scenario 7 opening.
 - **Opened once:** the battery is opened once, together, at the frozen policy, with no tuning after
   any result.
+
+## Results (2026-10-08, frozen threshold `0.20`, no threshold search)
+
+Four of the five battery captures were measured. Capture 44 (RBot, 4,710,639 rows) was deferred: its
+working set exceeds the 16 GB host memory with the current parser and it thrashed swap rather than
+completing. The four measured captures still give a balanced battery — 48 (RBot) and 50 (Neris) are
+training families, 49 (Murlo) and 54 (Virut) are unseen families.
+
+| Exam capture | Family | Relation | Labeled | Malicious | Prevalence | Precision | Recall | Unknown rows | Unknown alerts | Unknown share |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 48 (Sc7) | RBot | same family | 1,732 | 63 | 0.036 | 0.8182 | 0.1429 | 112,345 | 47,822 | 0.426 |
+| 50 (Sc9) | Neris | same family | 214,880 | 184,987 | 0.861 | 0.9993 | 0.9987 | 1,872,622 | 806,968 | 0.431 |
+| 49 (Sc8) | Murlo | unseen family | 78,766 | 6,127 | 0.078 | 0.4694 | 0.9675 | 2,875,464 | 1,004,819 | 0.349 |
+| 54 (Sc13) | Virut | unseen family | 71,782 | 40,003 | 0.557 | 0.9597 | 0.4515 | 1,853,367 | 623,135 | 0.336 |
+
+Artifact: `data/evaluation/phase3_heldout/heldout_summary.json` (ignored). Runner:
+`scripts/run_phase3_heldout_battery.py`. Source: `docs/phase3_heldout_design.md`.
+
+**Interpretation.** The frozen policy transfers almost perfectly within its training families
+(capture 50: precision `0.9993`, recall `0.9987`) and degrades in a family-dependent way on unseen
+families: capture 49 (Murlo) catches `96.75%` of malicious flows but at precision `0.4694` — more than
+half its alerts are wrong — while capture 54 (Virut) is precise (`0.9597`) but misses `54.85%`. The
+failure mode is therefore not uniform: one unseen family collapses precision, the other collapses
+recall. Capture 48's recall (`0.1429`) rests on only 63 malicious labeled rows (9 caught) and is too
+sparse to interpret as a stable estimate.
+
+The unknown-label alert share is `33.6%`–`43.1%` on every capture, consistent with the validation
+pool's `43.7%` ([phase3_evaluation_diagnosis.md](phase3_evaluation_diagnosis.md), Evidence 5).
+
+**Consequences.** (1) Pooled or single-capture reporting would hide a precision collapse from `0.9993`
+to `0.4694`; per-capture reporting is mandatory. (2) The detector chapter closes with a *negative*
+generalization result on unseen botnet families, which is the honest and defensible outcome. (3) No
+threshold, model, feature, or frozen policy was changed to produce this, and no tuning followed it.
