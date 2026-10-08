@@ -64,7 +64,7 @@
 
 ## Canonical Entities
 
-The Phase 1 event, provenance, and manifest contracts are immutable Pydantic models in `src/aegistrace/schemas/`; Phase 2 adds CTU-13-specific flow details and scenario identity. Phase 3 adds an immutable detection record for rules and versioned feature records. Milestone 5 adds the immutable `Finding`, `EvidenceBundle`, and `Claim` contracts in `src/aegistrace/schemas/findings.py`, with deterministic label-free aggregation in `src/aegistrace/detection/findings.py` and claim verification in `src/aegistrace/verification/`. Triage and review contracts remain designs for their scheduled milestones.
+The Phase 1 event, provenance, and manifest contracts are immutable Pydantic models in `src/aegistrace/schemas/`; Phase 2 adds CTU-13-specific flow details and scenario identity. Phase 3 adds an immutable detection record for rules and versioned feature records. Milestone 5 adds the immutable `Finding`, `EvidenceBundle`, and `Claim` contracts in `src/aegistrace/schemas/findings.py`, with deterministic label-free aggregation in `src/aegistrace/detection/findings.py` and claim verification in `src/aegistrace/verification/`. Milestone 7 adds the immutable `TriageAssessment`, `FailedAssessment`, and `TriageComparison` contracts in `src/aegistrace/schemas/triage.py`, with assessor-input isolation and deterministic adjudication in `src/aegistrace/triage/`. The human-review contract remains a design for its scheduled milestone.
 
 ### SourceRecordRef
 
