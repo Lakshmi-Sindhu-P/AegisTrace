@@ -98,6 +98,7 @@ class _HostState:
     flows: deque[_PriorFlow]
     destinations: Counter[str]
     destination_ports: Counter[int]
+    recent: deque[datetime]
     short_count: int = 0
 
 
@@ -148,11 +149,20 @@ def build_ctu13_behavioral_features(events: Iterable[SecurityEvent]) -> Behavior
         host = _host_key(details, event.event_id)
         state = states.setdefault(
             host,
-            _HostState(flows=deque(), destinations=Counter(), destination_ports=Counter()),
+            _HostState(
+                flows=deque(),
+                destinations=Counter(),
+                destination_ports=Counter(),
+                recent=deque(),
+            ),
         )
         _prune(state, event.observed_at - timedelta(seconds=300))
         connection_cutoff = event.observed_at - timedelta(seconds=60)
-        prior_connections = sum(flow.observed_at > connection_cutoff for flow in state.flows)
+        # `recent` mirrors the prior-flow 60s window in insertion order, so the count is O(1)
+        # instead of a per-event scan of the host's whole 300s window.
+        while state.recent and state.recent[0] <= connection_cutoff:
+            state.recent.popleft()
+        prior_connections = len(state.recent)
         total_bytes = details.network_bytes
         source_bytes = details.orig_bytes
         asymmetry_missing = float(total_bytes is None or total_bytes <= 0 or source_bytes is None)
@@ -180,6 +190,7 @@ def build_ctu13_behavioral_features(events: Iterable[SecurityEvent]) -> Behavior
             short=short,
         )
         state.flows.append(prior)
+        state.recent.append(event.observed_at)
         state.destinations[prior.destination] += 1
         if prior.destination_port is not None:
             state.destination_ports[prior.destination_port] += 1

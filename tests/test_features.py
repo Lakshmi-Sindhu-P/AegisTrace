@@ -158,6 +158,57 @@ def test_behavioral_aggregates_use_prior_host_window_and_write_parquet(tmp_path:
     assert pq.read_table(output).num_rows == 2
 
 
+def test_behavioral_prior_connection_count_expires_at_sixty_seconds(tmp_path: Path) -> None:
+    input_path = tmp_path / "window.binetflow"
+    header = (
+        "StartTime,Dur,Proto,SrcAddr,Sport,Dir,DstAddr,Dport,State,sTos,dTos,"
+        "TotPkts,TotBytes,SrcBytes,Label"
+    )
+    stamps = [
+        "2011/08/18 15:39:35.000000",
+        "2011/08/18 15:40:05.000000",
+        "2011/08/18 15:40:25.000000",
+        "2011/08/18 15:41:15.000000",
+    ]
+    rows = [
+        [
+            stamp,
+            "0.10",
+            "tcp",
+            "192.0.2.10",
+            "1234",
+            " ->",
+            f"198.51.100.{10 + index}",
+            "80",
+            "PA",
+            "0",
+            "0",
+            "2",
+            "100",
+            "50",
+            "flow=From-Botnet-test",
+        ]
+        for index, stamp in enumerate(stamps)
+    ]
+    input_path.write_text(
+        header + "\n" + "\n".join(",".join(row) for row in rows) + "\n", encoding="utf-8"
+    )
+    result = parse_ctu13_binetflow(input_path, ingested_at=datetime(2026, 9, 21, 1, tzinfo=UTC))
+    dataset = build_ctu13_behavioral_features(result.events)
+
+    connection_position = BEHAVIORAL_FEATURE_NAMES.index("prior_source_connections_60s")
+    # One shared host: each flow counts only prior flows inside its own 60s window, so the oldest
+    # entries must expire even though they remain inside the 300s window.
+    assert [record.values[connection_position] for record in dataset.records] == [
+        0.0,
+        1.0,
+        2.0,
+        1.0,
+    ]
+    destination_position = BEHAVIORAL_FEATURE_NAMES.index("prior_unique_destinations_300s")
+    assert dataset.records[3].values[destination_position] == 3.0
+
+
 def test_causal_features_add_prior_reuse_recency_and_long_window(tmp_path: Path) -> None:
     input_path = tmp_path / "causal.binetflow"
     header = (
