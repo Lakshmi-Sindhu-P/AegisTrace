@@ -82,7 +82,7 @@
         "CTU-Malware-Capture-Botnet-48"
       ],
       "seed": 42,
-      "command": "uv run python scripts/run_phase3_model_stability_cached.py",
+      "command": "uv run python scripts/run_phase3_model_stability_cached.py && uv run python scripts/correct_stability_operating_point.py",
       "configuration": {
         "models": [
           "random_forest",

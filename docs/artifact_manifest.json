@@ -189,9 +189,14 @@
         "validation_scenarios"
       ],
       "capture_count": null,
-      "recorded_inputs": [],
+      "recorded_inputs": [
+        "data/evaluation/phase3_model_stability/CTU-Malware-Capture-Botnet-45_behavioral.parquet",
+        "data/evaluation/phase3_model_stability/CTU-Malware-Capture-Botnet-46_behavioral.parquet",
+        "data/evaluation/phase3_model_stability/CTU-Malware-Capture-Botnet-51_behavioral.parquet",
+        "data/evaluation/phase3_model_stability/CTU-Malware-Capture-Botnet-53_behavioral.parquet"
+      ],
       "reproducible": false,
-      "reproducibility_note": "Recorded digest was produced before issue #21: each model result embedded a wall-clock fit_runtime_seconds value measured with time.perf_counter, so this digest can NEVER be reproduced even by a correct regeneration. New runs exclude timing from artifact bytes; the value is reported on the script's stderr instead. Regeneration is a costed owner decision.",
+      "reproducibility_note": "Recorded digest was produced before issue #21: each model result embedded a wall-clock fit_runtime_seconds value measured with time.perf_counter, so this digest can NEVER be reproduced even by a correct regeneration. New runs exclude timing from artifact bytes; the value is reported on the script's stderr instead. Regeneration is a costed owner decision. SECOND, INDEPENDENT CAUSE (issue #27): the recorded bytes were also rewritten in place by scripts/correct_stability_operating_point.py, which is not part of the producing command. A party who regenerates, sees a diff, and reads only the timing explanation above will conclude the difference is timing noise. It is not only timing noise: the repair rewrote HGB's operating_threshold to 1.0, its operating_metrics, alert volume, per-scenario confusion metrics, selection_status, added fallback_policy, and recomputed the disagreement, svm_unique_coverage and residual_error_analysis sections. The artifact records this in its own artifact_repair block.",
       "shape_note": "Model-stability sweep over training seeds and thresholds with residual-error and operating-policy blocks."
     },
     {

@@ -332,6 +332,16 @@ def test_committed_manifest_marks_pre_fix_timing_entries_unreproducible() -> Non
 UNCERTAINTY_PATH = "data/evaluation/phase3_uncertainty/uncertainty_summary.json"
 UNCERTAINTY_ARTIFACT = REPO_ROOT / UNCERTAINTY_PATH
 
+#: Issue #27 populated this entry's ``recorded_inputs``, so it now carries committed edges too. It
+#: is also above ``MAX_INPUT_SCAN_BYTES``, so its own bytes are reported as unverified rather than
+#: read. Before #27 this entry declared no inputs, which is why the graph check used to see exactly
+#: one entry.
+STABILITY_PATH = "data/evaluation/phase3_model_stability/stability_summary.json"
+STABILITY_ARTIFACT = REPO_ROOT / STABILITY_PATH
+
+#: Every entry with committed edges, in the sorted order the verifier reports them.
+GRAPH_ENTRIES = [STABILITY_PATH, UNCERTAINTY_PATH]
+
 
 def _multi_case(tmp_path: Path, specs: list[dict[str, Any]]) -> dict[str, Any]:
     """Build a multi-entry manifest/registry/artifact set under ``tmp_path``.
@@ -464,7 +474,7 @@ def test_verifier_rejects_deliberately_inconsistent_committed_fixture(tmp_path: 
 
     report, violations = verify_manifest(manifest_file, REGISTRY_PATH, REPO_ROOT)
 
-    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
+    assert report["input_graph_checked"] == GRAPH_ENTRIES
     assert any(
         UNCERTAINTY_PATH in v for v in _marked_reproducible_with_bad_input(violations)
     )
@@ -489,9 +499,12 @@ def test_committed_input_graph_is_consistent_and_skips_large_artifacts() -> None
     report, violations = verify_manifest(MANIFEST_PATH, REGISTRY_PATH, REPO_ROOT)
 
     assert violations == []
-    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
-    # No large artifact declares an "inputs" key, so none was loaded for this check.
-    assert report["input_graph_skipped_large"] == []
+    assert report["input_graph_checked"] == GRAPH_ENTRIES
+    # The stability artifact declares edges (issue #27) and is above the scan ceiling, so its own
+    # bytes are deliberately never loaded. Issue #24's requirement is that this is REPORTED as
+    # unverified rather than silently passed, which the next assertion pins.
+    assert report["input_graph_skipped_large"] == [STABILITY_PATH]
+    assert report["input_graph_unverified"] == {STABILITY_PATH: "over the size ceiling"}
 
 
 def test_verifier_handles_cyclic_input_graph_without_hanging(tmp_path: Path) -> None:
@@ -578,8 +591,11 @@ def test_fresh_clone_transitive_check_fails_using_only_committed_edges(tmp_path:
 
     assert report["verified_on_disk"] == 0
     assert report["absent"] == report["entries"] == 9
-    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
-    assert report["input_graph_unverified"] == {UNCERTAINTY_PATH: "absent"}
+    assert report["input_graph_checked"] == GRAPH_ENTRIES
+    assert report["input_graph_unverified"] == {
+        STABILITY_PATH: "over the size ceiling",
+        UNCERTAINTY_PATH: "absent",
+    }
     assert any(UNCERTAINTY_PATH in v for v in _marked_reproducible_with_bad_input(violations))
 
 
@@ -700,13 +716,18 @@ def test_committed_edges_disagreeing_with_artifact_is_violation(tmp_path: Path) 
 
 
 @pytest.mark.skipif(not UNCERTAINTY_ARTIFACT.is_file(), reason="artifact not regenerated here")
-def test_committed_manifest_passes_and_reports_no_unverified_inputs() -> None:
-    """Requirement (d): the committed manifest still passes against the real workspace."""
+def test_committed_manifest_passes_and_names_its_unverified_inputs() -> None:
+    """Requirement (d): the committed manifest still passes against the real workspace.
+
+    It does NOT report zero unverified inputs, and must not pretend to: the stability artifact
+    declares edges (issue #27) and is far above ``MAX_INPUT_SCAN_BYTES``, so the verifier reports
+    that it could not read it instead of silently treating the check as satisfied.
+    """
 
     report, violations = verify_manifest(MANIFEST_PATH, REGISTRY_PATH, REPO_ROOT)
 
     assert violations == []
-    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
-    assert report["input_graph_unverified"] == {}
+    assert report["input_graph_checked"] == GRAPH_ENTRIES
+    assert report["input_graph_unverified"] == {STABILITY_PATH: "over the size ceiling"}
     assert report["absent"] == 0
 
