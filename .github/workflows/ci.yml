@@ -36,3 +36,15 @@ jobs:
 
       - name: Validate solution knowledge
         run: uv run python scripts/validate_solution_knowledge.py docs/solution_knowledge.json
+
+      - name: Validate results ledger
+        run: uv run python scripts/validate_results_ledger.py docs/results_ledger.json
+
+      - name: Check the rendered results doc is in sync
+        run: uv run python scripts/render_results_ledger.py --check
+
+      - name: Validate phase 3 evidence and sealed-scenario policy
+        run: uv run python scripts/validate_phase3_evidence.py
+
+      # Agent traces live under the gitignored .context/ directory, so they are not
+      # present in CI and are validated locally instead.

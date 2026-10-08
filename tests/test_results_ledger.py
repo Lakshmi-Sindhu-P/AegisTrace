@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.render_results_ledger import render
+from scripts.render_results_ledger import main, render
 from scripts.validate_results_ledger import (
     REPO_ROOT,
     build_summary,
@@ -165,6 +165,45 @@ def test_clean_fixture_has_no_violations(tmp_path: Path) -> None:
 def test_render_is_idempotent() -> None:
     ledger = json.loads((REPO_ROOT / "docs/results_ledger.json").read_text(encoding="utf-8"))
     assert render(ledger) == render(ledger)
+
+
+def test_committed_results_md_is_in_sync_with_the_ledger() -> None:
+    """The rendered doc must not drift from the ledger it is generated from.
+
+    Idempotence only proves the renderer is stable; it does not prove the committed file
+    is current. Without this, editing the ledger and forgetting to re-render would leave
+    the human-readable results quietly disagreeing with the machine-checked ones.
+    """
+
+    ledger = json.loads((REPO_ROOT / "docs/results_ledger.json").read_text(encoding="utf-8"))
+    on_disk = (REPO_ROOT / "docs/results.md").read_text(encoding="utf-8")
+    assert on_disk == render(ledger), "run scripts/render_results_ledger.py to regenerate"
+
+
+def test_check_mode_passes_when_in_sync(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "ledger.json"
+    out = tmp_path / "out.md"
+    ledger_path.write_text(
+        json.dumps(make_ledger([make_claim()])), encoding="utf-8"
+    )
+    assert main([str(ledger_path), "--output", str(out)]) == 0
+    assert main([str(ledger_path), "--output", str(out), "--check"]) == 0
+
+
+def test_check_mode_fails_when_out_of_date(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "ledger.json"
+    out = tmp_path / "out.md"
+    ledger_path.write_text(json.dumps(make_ledger([make_claim()])), encoding="utf-8")
+    out.write_text("stale content that no longer matches the ledger", encoding="utf-8")
+    assert main([str(ledger_path), "--output", str(out), "--check"]) == 1
+    # --check must never rewrite the file it is judging.
+    assert out.read_text(encoding="utf-8") == "stale content that no longer matches the ledger"
+
+
+def test_check_mode_fails_when_output_is_missing(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "ledger.json"
+    ledger_path.write_text(json.dumps(make_ledger([make_claim()])), encoding="utf-8")
+    assert main([str(ledger_path), "--output", str(tmp_path / "absent.md"), "--check"]) == 1
 
 
 def test_render_writes_byte_identical_output_twice(tmp_path: Path) -> None:

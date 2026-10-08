@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -80,15 +81,37 @@ def render(ledger: dict[str, Any]) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entry point: read the ledger and write the rendered Markdown."""
+    """CLI entry point: read the ledger and write, or drift-check, the rendered Markdown."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("ledger", nargs="?", default=LEDGER, help="path to results_ledger.json")
     parser.add_argument("--output", default=OUTPUT, help="path to write results.md")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="do not write; exit 1 if the file on disk differs from the rendered output",
+    )
     args = parser.parse_args(argv)
 
     ledger = json.loads(Path(args.ledger).read_text(encoding="utf-8"))
-    Path(args.output).write_text(render(ledger), encoding="utf-8")
+    rendered = render(ledger)
+    target = Path(args.output)
+
+    if args.check:
+        if not target.is_file():
+            print(f"{args.output} does not exist; run this script to generate it", file=sys.stderr)
+            return 1
+        if target.read_text(encoding="utf-8") != rendered:
+            print(
+                f"{args.output} is out of date with {args.ledger}; "
+                "run this script to regenerate it",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"{args.output} is in sync with {args.ledger}")
+        return 0
+
+    target.write_text(rendered, encoding="utf-8")
     print(f"wrote {args.output}")
     return 0
 
