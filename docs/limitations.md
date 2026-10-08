@@ -71,4 +71,23 @@ new evidence-backed requirement changes the scope.
 
 AegisTrace does not currently support claims of autonomous incident response, production readiness, broad threat detection, zero hallucinations, analyst time savings, cloud scale, real-time processing, enterprise deployment, or security impact.
 
+## Reproducibility Limitations
+
+The evaluation artifacts are not committed. `data/evaluation/` is gitignored and all nine registered
+artifacts carry `tracked: false`, because the set totals about 196 MB and is dominated by
+`stability_summary.json` at roughly 133 MB and `causal_summary.json` at roughly 62 MB. Two
+consequences follow, and they are stated here rather than left implicit.
+
+First, **no one who clones this repository can verify a recorded digest from the repository alone.**
+The registry and the committed `docs/artifact_manifest.json` let a reader confirm that the digits are
+internally consistent and that every registered artifact is accounted for, but confirming that an
+artifact's bytes match its digest requires having regenerated the artifact. Continuous integration
+therefore runs the registry cross-check only, and reports artifacts as absent rather than failing.
+
+Second, the digest is `sha256` of the artifact's **raw bytes**. Re-serializing the same JSON
+differently changes the digest even when the content is semantically identical. A regenerating party
+must write the file byte-for-byte as the producing script does. The manifest records each artifact's
+byte size and top-level key set alongside the digest so that a near-miss is diagnosable rather than
+merely reported as a mismatch.
+
 Each limitation should be linked to an experiment or mitigation before any related public claim changes.

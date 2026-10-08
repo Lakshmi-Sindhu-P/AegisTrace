@@ -43,6 +43,12 @@ jobs:
       - name: Check the rendered results doc is in sync
         run: uv run python scripts/render_results_ledger.py --check
 
+      # The evaluation artifacts are gitignored because they total about 196 MB, so CI
+      # cannot re-hash them. The manifest's registry cross-check needs no artifact bytes
+      # and still runs; artifacts absent from disk are counted, not failed.
+      - name: Verify the artifact manifest against the registry
+        run: uv run python scripts/verify_artifact_manifest.py
+
       - name: Validate phase 3 evidence and sealed-scenario policy
         run: uv run python scripts/validate_phase3_evidence.py
 
