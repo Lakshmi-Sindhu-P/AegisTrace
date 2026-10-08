@@ -74,6 +74,39 @@ authoritative class. They are a workload signal, not a false-positive rate, and 
 unresolved question: on the 94.3% of traffic that is unlabeled, the project cannot currently say
 whether an alert is a detection or a false alarm.
 
+## Evidence 5 — Measured unknown-label workload at the frozen threshold (2026-10-08)
+
+`scripts/report_phase3_unknown_workload.py` refits the frozen policy on the frozen training captures
+(52 and 47) and scores the cached behavioral `1.1.0` artifacts for the four validation captures at the
+frozen threshold `0.20`. No threshold search is performed. As a pipeline check, it reproduces the
+hardening artifact's alert volume exactly for captures 46+53 (known_alerts `2,600`, unknown_alerts
+`183,669`; the hardening artifact records `186,269` total).
+
+| Capture | Labeled | Malicious | Prevalence | Precision | Recall | PR-AUC | Unknown rows | Unknown alerts | Unknown share |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 46 (Sc5) | 5,561 | 901 | 0.162 | 0.9829 | 0.9578 | 0.982910 | 124,271 | 56,744 | 0.457 |
+| 53 (Sc12) | 9,783 | 2,168 | 0.222 | 0.9698 | 0.7703 | 0.946879 | 315,688 | 126,925 | 0.402 |
+| 45 (Sc4) | 27,775 | 2,580 | 0.093 | 0.9424 | 0.9888 | 0.995813 | 1,093,297 | 494,069 | 0.452 |
+| 51 (Sc10) | 122,157 | 106,352 | 0.871 | 0.9919 | 0.9999 | 0.999950 | 1,187,624 | 512,112 | 0.431 |
+| **Pooled** | **165,276** | **112,001** | **0.678** | — | — | — | **2,720,880** | **1,189,850** | **0.437** |
+
+Pooled workload: known_alerts `112,518`; all rows `2,886,156`; all alerts `1,302,368` (45.1% of all
+rows).
+
+Two consequences:
+
+1. **Pooled recall hides per-capture variation.** The pooled labeled recall of `0.9949` is dominated
+   by capture 51, which supplies 106,352 of the 112,001 positives. Capture 53 (NSIS) recall is
+   `0.7703` and capture 46 is `0.9578`. This is the concrete reason every capture is reported
+   individually rather than only pooled.
+2. **The unlabeled workload is the real problem.** At the frozen threshold the model raises
+   `1,189,850` alerts on rows with no authoritative label — 43.7% of all unlabeled traffic. This is a
+   workload and uncertainty signal, **not** a false-positive rate, and it is the quantity the
+   corrected framing should report.
+
+The generated artifact is `data/evaluation/phase3_unknown_workload/workload_summary.json` (ignored).
+No threshold, model, feature, or frozen policy was changed to produce it.
+
 ## Interpretation
 
 1. The reported low recall and large residual are artifacts of a labeled-population-relative alert

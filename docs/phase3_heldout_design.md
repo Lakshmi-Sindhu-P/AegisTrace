@@ -1,8 +1,8 @@
 # Phase 3 Held-Out Design: Practice Pool and Sealed Exam
 
-**Status:** PROPOSED — design recorded 2026-10-08. Not executed. No capture has been acquired, no
-model fitted, and no exam capture opened. This document defines the split and protocol; it makes no
-result claim.
+**Status:** APPROVED 2026-10-08 by the repository owner. Acquisition of the focused four exam
+captures (44, 50, 49, 54) is in progress; no model has been fitted and no exam capture has been
+scored. This document defines the split and protocol; it makes no result claim.
 
 **Context:** the corrected interpretation in
 [phase3_evaluation_diagnosis.md](phase3_evaluation_diagnosis.md) shows the recorded operating-point
@@ -55,15 +55,30 @@ as reported by that remote README inventory and are **not independently re-verif
 All six are CC-BY (Garcia, Sebastian / Malware Capture Facility Project), matching how the existing
 captures are treated. Total acquisition is approximately 2.1 GB of labeled text flows.
 
-## Proposed exam set
+## Approved exam battery
 
-- **Same-family (1 test):** capture 44 (RBot). Tests whether the learned RBot pattern transfers to an
-  unseen RBot capture.
+Five captures, opened once as a battery:
+
+- **Same-family (2 tests):** captures 44 and 48 (both RBot). Tests whether the learned RBot pattern
+  transfers to unseen RBot captures.
 - **Different-family (3 tests):** captures 50 (Neris), 49 (Murlo), 54 (Virut). Tests cross-family
   generality. These are the families not already present in the validation pool (which has RBot and
   NSIS).
-- **Optional spares:** 42 and 43 (Neris) if a second replicate is wanted; this would make six tests.
-- **Focused minimum:** 4 tests (44, 50, 49, 54), roughly 1.5 GB.
+- **Acquisition:** 44, 50, 49, 54 (approximately 1.5 GB, in progress). Capture 48 is already local.
+- **Spares:** 42 and 43 (Neris) if a further replicate is wanted.
+
+### Capture 48 status (important)
+
+Capture 48 is **not pristine**. It was already opened once as the test scenario of the historical
+three-scenario baseline, and its metrics are recorded in [evaluation.md](evaluation.md) (Rules,
+Logistic Regression, and Random Forest at feature version `1.0.0`). It has, however, never been used
+to select the **current** frozen policy (feature `1.1.0`, balanced Random Forest, threshold `0.20`,
+training captures 52 and 47).
+
+Including 48 in this battery is therefore defensible only under the honest label
+**"previously opened for the historical baseline; held out from the current frozen policy."** It
+consumes the one-time Scenario 7 opening recorded in the gate section of [evaluation.md](evaluation.md),
+and it retires 48 from any future fresh-test role. No tuning may follow any battery result.
 
 ## Measurement protocol (per exam capture)
 
@@ -88,9 +103,11 @@ training data. Whole-capture holdout is the grouped form of the same idea and is
 policy. A within-capture temporal split (early traffic for fitting, later traffic for scoring) is a
 valid secondary check where timestamps support it.
 
-## Open decisions
+## Resolved decisions (2026-10-08)
 
-- Acquire all six captures (≈2.1 GB) or the focused four (≈1.5 GB)?
-- Keep Scenario 7 / capture 48 reserved for the historical baseline's one-time final measurement, or
-  supersede that reservation with this exam set? Both cannot be the "one untouched test."
-- Confirm the exam captures are treated as opened-once before any result is inspected.
+- **Scope:** acquire the focused four (44, 50, 49, 54) and use capture 48 from local storage. The
+  remaining unused captures (42, 43) stay available as spares.
+- **Capture 48:** included in the battery under the "previously opened for the historical baseline"
+  label above; this consumes the one-time Scenario 7 opening.
+- **Opened once:** the battery is opened once, together, at the frozen policy, with no tuning after
+  any result.
