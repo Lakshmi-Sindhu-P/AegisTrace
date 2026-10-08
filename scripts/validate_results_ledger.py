@@ -9,7 +9,14 @@ three kinds of rule:
 * provenance -- every ``experiment_id`` must exist in the registry, every
   ``artifact_ref`` of a claim that cites experiments must be a registered artifact
   of one of those experiments, and (with ``--require-artifacts``) must exist on
-  disk with a matching canonical digest.
+  disk with a matching canonical digest;
+* evidence    -- with ``--require-artifacts``, evidence strings in the machine
+  checkable ``path = value`` form are enforced against the cited artifacts: a
+  value mismatch, an unresolvable path, or an ambiguous list selector is a
+  violation. Prose evidence stays allowed and unenforced. ``build_summary`` also
+  reports how much of the ledger was actually audited (``evidence_strings_total``,
+  ``evidence_strings_enforced``, ``assertions_checked``) so a clean run cannot be
+  read as "all evidence verified".
 
 Run ``python scripts/validate_results_ledger.py docs/results_ledger.json
 --require-artifacts`` for the full check.
@@ -26,6 +33,8 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
+
+from aegistrace.verification.evidence_assertions import parse_assertions, validate_evidence
 
 CLAIM_TYPES = frozenset(
     {
@@ -69,6 +78,18 @@ def validate_data(
     violations: list[str] = []
     index = _registry_index(registry)
     claims = ledger.get("claims", [])
+    artifact_cache: dict[str, Any] = {}
+
+    def load_document(ref: str) -> Any | None:
+        """Load a referenced artifact's JSON once, keeping a per-run cache."""
+        if ref in artifact_cache:
+            return artifact_cache[ref]
+        try:
+            document = _load(base_dir / ref)
+        except (OSError, json.JSONDecodeError):
+            document = None
+        artifact_cache[ref] = document
+        return document
 
     # Deliberate non-empty floor (issue #16): a ledger with zero claims satisfies every
     # per-claim rule vacuously, so an empty ledger must be reported as a violation
@@ -152,6 +173,15 @@ def validate_data(
                         f"{claim_id}: artifact {ref!r} digest does not match registry"
                     )
 
+        if require_artifacts:
+            documents = [
+                document
+                for ref in artifact_refs
+                if (document := load_document(str(ref))) is not None
+            ]
+            evidence_violations, _, _ = validate_evidence(claim.get("evidence") or [], documents)
+            violations.extend(evidence_violations)
+
     return violations
 
 
@@ -159,8 +189,32 @@ def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _evidence_coverage(ledger: dict[str, Any]) -> dict[str, int]:
+    """Count how much of the ledger's evidence is machine-checkable and audited.
+
+    Machine-checkable strings are those in the enforced ``path = value`` form; each yields one or
+    more assertions. Prose evidence is counted in the total but not in enforced/checked, so a clean
+    summary always shows the gap between what the ledger says and what was actually audited.
+    """
+    total = enforced = assertions = 0
+    for claim in ledger.get("claims", []):
+        for entry in claim.get("evidence") or []:
+            if not isinstance(entry, str):
+                continue
+            total += 1
+            parsed = parse_assertions(entry)
+            if parsed is not None:
+                enforced += 1
+                assertions += len(parsed)
+    return {
+        "evidence_strings_total": total,
+        "evidence_strings_enforced": enforced,
+        "assertions_checked": assertions,
+    }
+
+
 def build_summary(ledger_path: str, ledger: dict[str, Any]) -> dict[str, Any]:
-    """Summarize claim counts by status and by type."""
+    """Summarize claim counts by status and by type, plus evidence coverage."""
 
     by_status: dict[str, int] = {}
     by_type: dict[str, int] = {}
@@ -170,12 +224,14 @@ def build_summary(ledger_path: str, ledger: dict[str, Any]) -> dict[str, Any]:
         claim_type = str(claim.get("claim_type", ""))
         by_status[status] = by_status.get(status, 0) + 1
         by_type[claim_type] = by_type.get(claim_type, 0) + 1
-    return {
+    summary = {
         "ledger": ledger_path,
         "claim_count": len(claims),
         "by_status": by_status,
         "by_type": by_type,
     }
+    summary.update(_evidence_coverage(ledger))
+    return summary
 
 
 def main(argv: Sequence[str] | None = None) -> int:
