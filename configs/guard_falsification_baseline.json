@@ -1,0 +1,5 @@
+{
+  "baseline": 0,
+  "recorded_at": "2026-10-08T12:44:57Z",
+  "note": "Every real guard in src/aegistrace is now falsified by a test that observes it refusing (five suites: test_{validator,decision,evaluation,pipeline,remaining}_falsification.py). A raise under `if __name__ == '__main__':` is a CLI entry point, not a guard, and is excluded from the count. Baseline deliberately permits genuinely unreachable defensive raises rather than forcing a hard zero that would invite deleting real guards."
+}
