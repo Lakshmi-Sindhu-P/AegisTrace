@@ -70,6 +70,58 @@ _TRIAGE_PROMPT = (
 )
 
 
+def assert_assessors_independent(
+    analyst: ProviderDescriptor, adjudicator: ProviderDescriptor
+) -> None:
+    """Refuse, with a raised error, a run where one assessor is asked to answer twice.
+
+    Structural equality is the test. Two identical descriptors mean the same provider, model, and
+    family produced both sides, so any agreement between them measures the prompt and the model
+    rather than two independent readings of the evidence.
+    """
+
+    if analyst != adjudicator:
+        return
+    raise ValueError(
+        f"analyst and adjudicator providers share the descriptor {analyst.name!r} "
+        f"(model {analyst.model_id!r}); one assessor answering twice under two labels is not "
+        "independence, so the run is refused"
+    )
+
+
+def _independence_determination(
+    analyst: ProviderDescriptor, adjudicator: ProviderDescriptor
+) -> tuple[bool, str]:
+    """Decide, and explain in plain language, whether assessor independence is established.
+
+    Independence requires two *distinct* descriptors that also do not share a ``model_family``. An
+    offline stub or recorded-replay provider is a mechanical, non-intelligent stand-in, so a run
+    over any offline descriptor is permitted but can never establish independence.
+    """
+
+    if (
+        analyst.kind is not ProviderKind.REMOTE
+        or adjudicator.kind is not ProviderKind.REMOTE
+    ):
+        return (
+            False,
+            "synthetic offline providers (stub or recorded replay) are mechanical stand-ins that "
+            "do not reason, so a run over them cannot establish assessor independence",
+        )
+    if analyst.model_family == adjudicator.model_family:
+        return (
+            False,
+            f"both providers share model_family {analyst.model_family!r}; two prompts over one "
+            "model family measure the prompt, not the evidence",
+        )
+    return (
+        True,
+        f"distinct remote descriptors with distinct model families "
+        f"({analyst.model_family!r} vs {adjudicator.model_family!r}); independence rests on the "
+        "descriptors' own declaration and is not proof of the transport",
+    )
+
+
 def assert_provider_permitted(descriptor: ProviderDescriptor, freeze_status: str) -> None:
     """Refuse, with a raised error, any provider that needs egress without explicit approval.
 
@@ -112,6 +164,10 @@ class TriageRun(FrozenSchema):
     aborted: bool
     abort_reason: NonEmptyText | None = None
     synthetic: bool
+    independence_established: bool = False
+    independence_basis: NonEmptyText = (
+        "not determined: this record was constructed without an independence determination"
+    )
 
     @field_validator("created_at")
     @classmethod
@@ -205,6 +261,13 @@ def run_independent_triage(
     # Governance refusal comes first, before any snapshot, request, or budget is touched.
     assert_provider_permitted(analyst_provider.descriptor, freeze_status)
     assert_provider_permitted(adjudicator_provider.descriptor, freeze_status)
+
+    # Independence is a precondition of the run, checked alongside the governance gate and still
+    # before any snapshot or budget work.
+    assert_assessors_independent(analyst_provider.descriptor, adjudicator_provider.descriptor)
+    independence_established, independence_basis = _independence_determination(
+        analyst_provider.descriptor, adjudicator_provider.descriptor
+    )
 
     raw_budget = freeze.get("budget")
     budget_map: Mapping[str, Any] = raw_budget if isinstance(raw_budget, Mapping) else {}
@@ -327,6 +390,8 @@ def run_independent_triage(
         aborted=aborted,
         abort_reason=abort_reason,
         synthetic=synthetic,
+        independence_established=independence_established,
+        independence_basis=independence_basis,
     )
 
 
@@ -336,6 +401,7 @@ __all__ = [
     "TRIAGE_PROMPT_VERSION",
     "RunBudget",
     "TriageRun",
+    "assert_assessors_independent",
     "assert_provider_permitted",
     "run_independent_triage",
     "triage_run_id_for",

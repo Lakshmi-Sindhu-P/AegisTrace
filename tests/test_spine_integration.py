@@ -159,6 +159,15 @@ def test_spine_runs_end_to_end_with_one_record_per_bundle() -> None:
         finding_by_bundle[bundle.evidence_bundle_id] == bundle.finding_id for bundle in bundles
     )
 
+def test_spine_records_offline_run_without_claiming_independence() -> None:
+    record = _run((_bundle(),))[0]
+    run = record.triage_run
+
+    assert run.analyst_descriptor != run.adjudicator_descriptor
+    assert run.independence_established is False
+    assert "synthetic offline providers" in run.independence_basis
+
+
 def test_record_tier_is_a_valid_tier_assignment() -> None:
     record = _run((_bundle(),))[0]
 

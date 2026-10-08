@@ -72,6 +72,17 @@ def compare_assessments(
 
     if left.evidence_bundle_id != right.evidence_bundle_id:
         raise ValueError("cannot compare assessments of different evidence bundles")
+    if _identifier(left) == _identifier(right):
+        raise ValueError(
+            "cannot compare an assessment with itself: both identifiers are identical, which "
+            "means the same assessment was passed twice rather than two independent assessors"
+        )
+    if left.role is right.role:
+        raise ValueError(
+            f"cannot compare two assessments that share role {left.role.value!r}; independence "
+            "requires one assessment per role, so one assessor answering twice under two labels "
+            "is not an independent comparison"
+        )
 
     ordered = sorted((left, right), key=_sort_key)
     first, second = ordered

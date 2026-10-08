@@ -292,6 +292,23 @@ def test_comparing_assessments_of_different_bundles_is_rejected() -> None:
         compare_assessments(first, second, created_at=CREATED_AT)
 
 
+def test_comparing_two_assessments_of_the_same_role_is_rejected() -> None:
+    bundle = _bundle()
+    first = _assess(bundle, AssessorRole.TRIAGE_ANALYST, summary="first analyst reading")
+    second = _assess(bundle, AssessorRole.TRIAGE_ANALYST, summary="second analyst reading")
+    assert first.triage_id != second.triage_id
+
+    with pytest.raises(ValueError, match="share role"):
+        compare_assessments(first, second, created_at=CREATED_AT)
+
+
+def test_comparing_an_assessment_with_itself_is_rejected() -> None:
+    assessment = _assess(_bundle(), AssessorRole.TRIAGE_ANALYST)
+
+    with pytest.raises(ValueError, match="same assessment was passed twice"):
+        compare_assessments(assessment, assessment, created_at=CREATED_AT)
+
+
 def test_comparison_rejects_agreement_carrying_disagreement_reasons() -> None:
     with pytest.raises(ValidationError, match="cannot carry disagreement reasons"):
         TriageComparison(

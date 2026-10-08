@@ -119,31 +119,64 @@ def _assessment_text(bundle: EvidenceBundle, *, category: str, severity: str, su
     return json.dumps(payload, sort_keys=True)
 
 
-def _recorded_descriptor() -> ProviderDescriptor:
+def _recorded_descriptor(
+    name: str = "offline-recorded-fixture",
+    model_id: str = "recorded-fixture-2026-10-08",
+) -> ProviderDescriptor:
     return ProviderDescriptor(
-        name="offline-recorded-fixture",
-        model_id="recorded-fixture-2026-10-08",
+        name=name,
+        model_id=model_id,
         model_family="recorded-fixture",
         kind=ProviderKind.OFFLINE_RECORDED,
         requires_egress=False,
     )
 
 
-def _stub_descriptor() -> ProviderDescriptor:
+def _adjudicator_recorded_descriptor() -> ProviderDescriptor:
+    return _recorded_descriptor(
+        name="offline-recorded-adjudicator",
+        model_id="recorded-adjudicator-fixture-2026-10-08",
+    )
+
+
+def _stub_descriptor(
+    name: str = "offline-stub",
+    model_id: str = "stub-deterministic-echo",
+) -> ProviderDescriptor:
     return ProviderDescriptor(
-        name="offline-stub",
-        model_id="stub-deterministic-echo",
+        name=name,
+        model_id=model_id,
         model_family="deterministic-stub",
         kind=ProviderKind.OFFLINE_STUB,
         requires_egress=False,
     )
 
 
-def _remote_descriptor() -> ProviderDescriptor:
+def _adjudicator_stub_descriptor() -> ProviderDescriptor:
+    return _stub_descriptor(name="offline-stub-adjudicator", model_id="stub-deterministic-echo-2")
+
+
+def _recorded_pair(
+    bundle: EvidenceBundle,
+) -> tuple[RecordedTriageProvider, RecordedTriageProvider]:
+    """Two distinct offline descriptors, one per role, sharing the same recorded responses."""
+
+    responses = _recorded_responses(bundle)
+    return (
+        RecordedTriageProvider(_recorded_descriptor(), responses, CREATED_AT),
+        RecordedTriageProvider(_adjudicator_recorded_descriptor(), responses, CREATED_AT),
+    )
+
+
+def _remote_descriptor(
+    name: str = "remote-llm-provider",
+    model_id: str = "remote-model-v1",
+    model_family: str = "remote-family",
+) -> ProviderDescriptor:
     return ProviderDescriptor(
-        name="remote-llm-provider",
-        model_id="remote-model-v1",
-        model_family="remote-family",
+        name=name,
+        model_id=model_id,
+        model_family=model_family,
         kind=ProviderKind.REMOTE,
         requires_egress=True,
     )
@@ -167,15 +200,19 @@ def _recorded_responses(bundle: EvidenceBundle) -> dict[tuple[AssessorRole, str]
     }
 
 
-def _recorded_provider(bundle: EvidenceBundle) -> RecordedTriageProvider:
-    return RecordedTriageProvider(_recorded_descriptor(), _recorded_responses(bundle), CREATED_AT)
-
-
 def _freeze(**budget_overrides: int) -> dict:
     data = json.loads(FREEZE_PATH.read_text(encoding="utf-8"))
     if budget_overrides:
         data = dict(data)
         data["budget"] = {**data["budget"], **budget_overrides}
+    return data
+
+
+def _approved_freeze() -> dict:
+    """The repo freeze with an approved egress status, for exercising remote descriptors."""
+
+    data = json.loads(FREEZE_PATH.read_text(encoding="utf-8"))
+    data["status"] = "APPROVED"
     return data
 
 
@@ -403,7 +440,9 @@ def test_run_over_recorded_responses_is_deterministic_and_byte_identical() -> No
 
     def _run() -> str:
         analyst = RecordedTriageProvider(_recorded_descriptor(), responses, CREATED_AT)
-        adjudicator = RecordedTriageProvider(_recorded_descriptor(), responses, CREATED_AT)
+        adjudicator = RecordedTriageProvider(
+            _adjudicator_recorded_descriptor(), responses, CREATED_AT
+        )
         run = run_independent_triage(
             bundles=[bundle],
             analyst_provider=analyst,
@@ -428,22 +467,24 @@ def test_run_over_recorded_responses_is_deterministic_and_byte_identical() -> No
 def test_both_roles_receive_the_identical_snapshot() -> None:
     bundle = _bundle()
     responses = _recorded_responses(bundle)
-    provider = _RecordingProvider(_recorded_descriptor(), responses, CREATED_AT)
+    analyst = _RecordingProvider(_recorded_descriptor(), responses, CREATED_AT)
+    adjudicator = _RecordingProvider(_adjudicator_recorded_descriptor(), responses, CREATED_AT)
 
     run_independent_triage(
         bundles=[bundle],
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=_freeze(),
         created_at=CREATED_AT,
     )
 
-    assert len(provider.requests) == 2
-    digests = {request.snapshot_digest for request in provider.requests}
-    snapshots = {request.snapshot_json for request in provider.requests}
+    requests = [*analyst.requests, *adjudicator.requests]
+    assert len(requests) == 2
+    digests = {request.snapshot_digest for request in requests}
+    snapshots = {request.snapshot_json for request in requests}
     assert digests == {snapshot_digest(bundle)}
     assert len(snapshots) == 1
-    assert {request.role for request in provider.requests} == {
+    assert {request.role for request in requests} == {
         AssessorRole.TRIAGE_ANALYST,
         AssessorRole.EXPERT_ADJUDICATOR,
     }
@@ -451,12 +492,12 @@ def test_both_roles_receive_the_identical_snapshot() -> None:
 
 def test_budget_exhaustion_aborts_rather_than_raises() -> None:
     bundle = _bundle()
-    provider = _recorded_provider(bundle)
+    analyst, adjudicator = _recorded_pair(bundle)
 
     run = run_independent_triage(
         bundles=[bundle],
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=_freeze(max_total_calls=1),
         created_at=CREATED_AT,
     )
@@ -469,12 +510,14 @@ def test_budget_exhaustion_aborts_rather_than_raises() -> None:
 
 def test_assessment_budget_exhaustion_aborts_rather_than_raises() -> None:
     bundles = [_bundle("10.0.0.1"), _bundle("10.0.0.2")]
-    provider = _recorded_provider(bundles[0])
+    responses = _recorded_responses(bundles[0])
+    analyst = RecordedTriageProvider(_recorded_descriptor(), responses, CREATED_AT)
+    adjudicator = RecordedTriageProvider(_adjudicator_recorded_descriptor(), responses, CREATED_AT)
 
     run = run_independent_triage(
         bundles=bundles,
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=_freeze(max_assessments_per_run=2),
         created_at=CREATED_AT,
     )
@@ -488,12 +531,15 @@ def test_assessment_budget_exhaustion_aborts_rather_than_raises() -> None:
 def test_bundle_overflow_is_enforced_and_recorded() -> None:
     bundles = [_bundle("10.0.0.1"), _bundle("10.0.0.2")]
     first_responses = _recorded_responses(bundles[0])
-    provider = RecordedTriageProvider(_recorded_descriptor(), first_responses, CREATED_AT)
+    analyst = RecordedTriageProvider(_recorded_descriptor(), first_responses, CREATED_AT)
+    adjudicator = RecordedTriageProvider(
+        _adjudicator_recorded_descriptor(), first_responses, CREATED_AT
+    )
 
     run = run_independent_triage(
         bundles=bundles,
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=_freeze(max_bundles_per_run=1),
         created_at=CREATED_AT,
     )
@@ -505,12 +551,13 @@ def test_bundle_overflow_is_enforced_and_recorded() -> None:
 
 
 def test_snapshot_digest_mismatch_between_roles_aborts() -> None:
-    provider = _MismatchedDigestProvider(_stub_descriptor(), CREATED_AT)
+    analyst = _MismatchedDigestProvider(_stub_descriptor(), CREATED_AT)
+    adjudicator = _MismatchedDigestProvider(_adjudicator_stub_descriptor(), CREATED_AT)
 
     run = run_independent_triage(
         bundles=[_bundle()],
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=_freeze(),
         created_at=CREATED_AT,
     )
@@ -524,7 +571,7 @@ def test_snapshot_digest_mismatch_between_roles_aborts() -> None:
 def test_stub_run_produces_admissible_synthetic_assessments() -> None:
     bundle = _bundle()
     analyst = StubTriageProvider(_stub_descriptor(), CREATED_AT)
-    adjudicator = StubTriageProvider(_stub_descriptor(), CREATED_AT)
+    adjudicator = StubTriageProvider(_adjudicator_stub_descriptor(), CREATED_AT)
 
     run = run_independent_triage(
         bundles=[bundle],
@@ -535,6 +582,7 @@ def test_stub_run_produces_admissible_synthetic_assessments() -> None:
     )
 
     assert run.synthetic is True
+    assert run.independence_established is False
     assert all(isinstance(item, TriageAssessment) for item in run.assessments)
     assert len(run.comparisons) == 1
     assert {item.role for item in run.assessments} == {
@@ -544,11 +592,12 @@ def test_stub_run_produces_admissible_synthetic_assessments() -> None:
 
 
 def test_non_json_provider_text_is_preserved_as_a_failed_attempt() -> None:
-    provider = _NonJsonProvider(_stub_descriptor(), CREATED_AT)
+    analyst = _NonJsonProvider(_stub_descriptor(), CREATED_AT)
+    adjudicator = _NonJsonProvider(_adjudicator_stub_descriptor(), CREATED_AT)
     run = run_independent_triage(
         bundles=[_bundle()],
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=_freeze(),
         created_at=CREATED_AT,
     )
@@ -574,14 +623,14 @@ def test_stub_handles_a_snapshot_without_a_finding_id() -> None:
 
 def test_missing_budget_block_aborts_without_raising() -> None:
     bundle = _bundle()
-    provider = _recorded_provider(bundle)
+    analyst, adjudicator = _recorded_pair(bundle)
     freeze = json.loads(FREEZE_PATH.read_text(encoding="utf-8"))
     freeze.pop("budget")
 
     run = run_independent_triage(
         bundles=[bundle],
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=freeze,
         created_at=CREATED_AT,
     )
@@ -604,12 +653,12 @@ def test_boundary_modules_cannot_open_a_network_connection() -> None:
 def test_run_never_mutates_incoming_bundles() -> None:
     bundle = _bundle()
     before = bundle.model_dump_json()
-    provider = _recorded_provider(bundle)
+    analyst, adjudicator = _recorded_pair(bundle)
 
     run = run_independent_triage(
         bundles=[bundle],
-        analyst_provider=provider,
-        adjudicator_provider=provider,
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
         freeze=_freeze(),
         created_at=CREATED_AT,
     )
@@ -635,3 +684,134 @@ def test_triage_run_rejects_an_abort_reason_that_contradicts_its_state() -> None
         TriageRun(**common, aborted=True)
     with pytest.raises(ValidationError, match="must not record an abort_reason"):
         TriageRun(**common, aborted=False, abort_reason="should not be here")
+
+
+class _DeclaredRemoteProvider:
+    """A REMOTE descriptor answered locally; used only to exercise independence determination."""
+
+    def __init__(
+        self, descriptor: ProviderDescriptor, raw_text: str, created_at: datetime
+    ) -> None:
+        self._descriptor = descriptor
+        self._raw_text = raw_text
+        self._created_at = created_at
+        self.calls = 0
+
+    @property
+    def descriptor(self) -> ProviderDescriptor:
+        return self._descriptor
+
+    def complete(self, request: ProviderRequest) -> ProviderResponse:
+        self.calls += 1
+        return ProviderResponse(
+            descriptor=self._descriptor,
+            role=request.role,
+            snapshot_digest=request.snapshot_digest,
+            raw_text=self._raw_text,
+            request_digest=request_digest(request),
+            response_digest=digest_text(self._raw_text),
+            synthetic=False,
+            created_at=self._created_at,
+        )
+
+
+def test_one_assessor_under_two_labels_is_refused() -> None:
+    bundle = _bundle()
+    provider = _RecordingProvider(_recorded_descriptor(), _recorded_responses(bundle), CREATED_AT)
+
+    with pytest.raises(ValueError, match="not independence"):
+        run_independent_triage(
+            bundles=[bundle],
+            analyst_provider=provider,
+            adjudicator_provider=provider,
+            freeze=_freeze(),
+            created_at=CREATED_AT,
+        )
+
+    assert provider.requests == []
+
+
+def test_governance_gate_precedes_the_independence_check() -> None:
+    provider = _RemoteProvider()
+
+    with pytest.raises(PermissionError, match="requires network egress"):
+        run_independent_triage(
+            bundles=[_bundle()],
+            analyst_provider=provider,
+            adjudicator_provider=provider,
+            freeze=_freeze(),
+            created_at=CREATED_AT,
+        )
+
+    assert provider.calls == 0
+
+
+def test_distinct_offline_descriptors_run_but_do_not_establish_independence() -> None:
+    bundle = _bundle()
+    analyst, adjudicator = _recorded_pair(bundle)
+
+    run = run_independent_triage(
+        bundles=[bundle],
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
+        freeze=_freeze(),
+        created_at=CREATED_AT,
+    )
+
+    assert run.aborted is False
+    assert run.calls_made == 2
+    assert run.independence_established is False
+    assert "synthetic offline providers" in run.independence_basis
+
+
+def _declared_remote_pair(
+    bundle: EvidenceBundle, analyst_family: str, adjudicator_family: str
+) -> tuple[_DeclaredRemoteProvider, _DeclaredRemoteProvider]:
+    raw = _assessment_text(
+        bundle, category="likely_malicious", severity="high", summary="declared remote reading"
+    )
+    analyst = _DeclaredRemoteProvider(
+        _remote_descriptor(name="remote-analyst", model_id="m-a", model_family=analyst_family),
+        raw,
+        CREATED_AT,
+    )
+    adjudicator = _DeclaredRemoteProvider(
+        _remote_descriptor(
+            name="remote-adjudicator", model_id="m-b", model_family=adjudicator_family
+        ),
+        raw,
+        CREATED_AT,
+    )
+    return analyst, adjudicator
+
+
+def test_remote_providers_sharing_a_family_do_not_establish_independence() -> None:
+    bundle = _bundle()
+    analyst, adjudicator = _declared_remote_pair(bundle, "shared-family", "shared-family")
+
+    run = run_independent_triage(
+        bundles=[bundle],
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
+        freeze=_approved_freeze(),
+        created_at=CREATED_AT,
+    )
+
+    assert run.independence_established is False
+    assert "model_family" in run.independence_basis
+
+
+def test_remote_providers_with_distinct_families_establish_independence() -> None:
+    bundle = _bundle()
+    analyst, adjudicator = _declared_remote_pair(bundle, "family-a", "family-b")
+
+    run = run_independent_triage(
+        bundles=[bundle],
+        analyst_provider=analyst,
+        adjudicator_provider=adjudicator,
+        freeze=_approved_freeze(),
+        created_at=CREATED_AT,
+    )
+
+    assert run.independence_established is True
+    assert "distinct remote descriptors" in run.independence_basis
