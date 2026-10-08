@@ -9,7 +9,7 @@ prioritization signal. No function accepts a final-test dataset.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from time import perf_counter
 from typing import Any, Protocol
 
@@ -290,6 +290,20 @@ def fit_isolation_forest_scores(
             "normalization": normalization,
         },
     )
+
+
+def artifact_fit_metadata(runtime: Mapping[str, Any]) -> dict[str, Any]:
+    """Return fit-scoring metadata with the wall-clock ``fit_seconds`` value removed.
+
+    ``fit_seconds`` is measured with :func:`time.perf_counter` purely as operator
+    telemetry.  Serializing it would place a non-reproducible value inside artifact
+    bytes whose SHA-256 digest the committed manifest records as reproducible
+    evidence (issue #21), so every producing script excludes it from the artifact
+    payload.  The measurement is kept for the operator by reporting it on the
+    script's stderr log instead.
+    """
+
+    return {key: value for key, value in runtime.items() if key != "fit_seconds"}
 
 
 def metrics_for_scores(

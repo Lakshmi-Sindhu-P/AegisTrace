@@ -75,7 +75,7 @@ AegisTrace does not currently support claims of autonomous incident response, pr
 
 The evaluation artifacts are not committed. `data/evaluation/` is gitignored and all nine registered
 artifacts carry `tracked: false`, because the set totals about 196 MB and is dominated by
-`stability_summary.json` at roughly 133 MB and `causal_summary.json` at roughly 62 MB. Two
+`stability_summary.json` at roughly 133 MB and `causal_summary.json` at roughly 62 MB. Three
 consequences follow, and they are stated here rather than left implicit.
 
 First, **no one who clones this repository can verify a recorded digest from the repository alone.**
@@ -89,5 +89,32 @@ differently changes the digest even when the content is semantically identical. 
 must write the file byte-for-byte as the producing script does. The manifest records each artifact's
 byte size and top-level key set alongside the digest so that a near-miss is diagnosable rather than
 merely reported as a mismatch.
+
+Third, and independent of the two points above, **four committed manifest digests cannot be
+reproduced at all**, three because the artifacts they describe embedded a wall-clock timing value in
+their serialized bytes and one because its recorded inputs can never recur. The phase-3 producer
+scripts measured model fit time with `time.perf_counter()` (`fit_seconds` in
+`src/aegistrace/evaluation/model_family.py`) and wrote it into each model result as
+`fit_runtime_seconds` and inside a `runtime` block. That value differs on every run, so the recorded
+`sha256` for `data/evaluation/phase3_model_family/benchmark_summary.json`,
+`data/evaluation/phase3_causal_representation/causal_summary.json`, and
+`data/evaluation/phase3_model_stability/stability_summary.json` can never match even a correct
+regeneration.
+
+The fourth, `data/evaluation/phase3_uncertainty/uncertainty_summary.json`, is different: its own
+producer has no timing dependence, but the artifact serializes an `inputs` array recording the
+digests of `stability_summary.json` and `causal_summary.json`, both of which are themselves
+unreproducible. Those input digests can never be produced again and this artifact's bytes embed
+them, so its digest cannot recur either. Reproducibility is therefore transitive: an artifact is
+reproducible only when it is not timing-affected and none of its recorded inputs is unreproducible
+(issue #23). `scripts/verify_artifact_manifest.py` follows that chain and fails when a stored
+`"reproducible": true` contradicts the recorded input digests, without loading the
+tens-to-hundreds-of-megabytes artifacts.
+
+Those four entries are marked `"reproducible": false` with an explanatory `reproducibility_note` in
+`docs/artifact_manifest.json`; the other five are marked `"reproducible": true`. The producing scripts
+no longer serialize fit timing (it is reported on stderr for the operator), so a future regeneration
+can be reproducible, but the already-recorded digests for these four file paths will still not
+verify until an owner-approved regeneration updates the manifest.
 
 Each limitation should be linked to an experiment or mitigation before any related public claim changes.

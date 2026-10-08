@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import statistics
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,7 @@ from aegistrace.evaluation.model_family import (
     OPERATING_ALERTS_PER_1000_CAP,
     OPERATING_PRECISION_FLOOR,
     alert_volume_for_scores,
+    artifact_fit_metadata,
     disagreement_report,
     fit_supervised_scores,
     metrics_for_scores,
@@ -180,6 +182,7 @@ def _model_result(
         seed=seed,
     )
     detector_name = f"causal_{CAUSAL_FEATURE_VERSION}:{name}"
+    print(f"fit_seconds[{name}]: {runtime['fit_seconds']:.6f}", file=sys.stderr)
     fixed = metrics_for_scores(
         detector_name=detector_name,
         validation_records=validation_records,
@@ -217,8 +220,7 @@ def _model_result(
                 scores=scores,
                 threshold=threshold,
             ),
-            "fit_runtime_seconds": runtime["fit_seconds"],
-            "runtime": runtime,
+            "fit_metadata": artifact_fit_metadata(runtime),
             "parameters": {
                 "class_weight": "balanced"
                 if name != "hist_gradient_boosting"

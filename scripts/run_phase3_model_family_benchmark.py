@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,7 @@ from aegistrace.evaluation.model_family import (
     MODEL_FAMILY_NAMES,
     MODEL_FAMILY_VERSION,
     alert_volume_for_scores,
+    artifact_fit_metadata,
     disagreement_report,
     fit_isolation_forest_scores,
     fit_supervised_scores,
@@ -193,6 +195,7 @@ def _family_result(
         seed=seed,
     )
     detector_name = f"behavioral_{BEHAVIORAL_FEATURE_VERSION}:{name}"
+    print(f"fit_seconds[{name}]: {runtime['fit_seconds']:.6f}", file=sys.stderr)
     fixed = metrics_for_scores(
         detector_name=detector_name,
         validation_records=validation_records,
@@ -224,8 +227,7 @@ def _family_result(
                 scores=scores,
                 threshold=FIXED_POLICY_THRESHOLD,
             ),
-            "fit_runtime_seconds": runtime["fit_seconds"],
-            "runtime": runtime,
+            "fit_metadata": artifact_fit_metadata(runtime),
             "interpretability": INTERPRETABILITY[name],
             "parameters": {
                 "class_weight": "balanced"
@@ -252,6 +254,7 @@ def _anomaly_result(
         seed=seed,
     )
     detector_name = f"behavioral_{BEHAVIORAL_FEATURE_VERSION}:isolation_forest"
+    print(f"fit_seconds[isolation_forest]: {runtime['fit_seconds']:.6f}", file=sys.stderr)
     fixed = metrics_for_scores(
         detector_name=detector_name,
         validation_records=validation_records,
@@ -283,7 +286,7 @@ def _anomaly_result(
                 scores=scores,
                 threshold=FIXED_POLICY_THRESHOLD,
             ),
-            "runtime": runtime,
+            "fit_metadata": artifact_fit_metadata(runtime),
             "interpretability": INTERPRETABILITY["isolation_forest"],
             "parameters": {"contamination": "auto", "n_estimators": 100, "seed": seed},
             "validation_scenario_count": len(validation_metadata),

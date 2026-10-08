@@ -62,6 +62,8 @@ def _case(
         "top_level_keys": sorted(artifact) if artifact is not None else ["captures"],
         "capture_count": None,
         "shape_note": "synthetic fixture",
+        "reproducible": True,
+        "reproducibility_note": "synthetic fixture digest is reproducible",
     }
     if artifact is not None and isinstance(artifact.get("captures"), list):
         entry["capture_count"] = len(artifact["captures"])
@@ -280,3 +282,243 @@ def test_default_manifest_path_matches_registry() -> None:
     """The CLI defaults resolve to the committed files and pass on this checkout."""
 
     assert main([]) == 0
+
+
+def test_manifest_entry_requires_reproducible_field(tmp_path: Path) -> None:
+    """Issue #21: an entry may not silently omit its reproducibility contract."""
+
+    case = _case(tmp_path, {"schema_version": "1.0", "captures": []})
+    manifest = json.loads(case["manifest"].read_text(encoding="utf-8"))
+    del manifest["artifacts"][0]["reproducible"]
+    _write_json(case["manifest"], manifest)
+
+    _, violations = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+
+    assert any("missing required boolean field 'reproducible'" in v for v in violations)
+
+
+def test_manifest_entry_requires_reproducibility_note(tmp_path: Path) -> None:
+    case = _case(tmp_path, {"schema_version": "1.0", "captures": []})
+    manifest = json.loads(case["manifest"].read_text(encoding="utf-8"))
+    manifest["artifacts"][0]["reproducibility_note"] = "   "
+    _write_json(case["manifest"], manifest)
+
+    _, violations = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+
+    assert any("'reproducibility_note' field" in v for v in violations)
+
+
+def test_committed_manifest_marks_pre_fix_timing_entries_unreproducible() -> None:
+    """The three artifacts whose bytes embedded a wall-clock fit time are flagged."""
+
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    entries = {entry["path"]: entry for entry in manifest["artifacts"]}
+    timing_affected = {
+        "data/evaluation/phase3_model_family/benchmark_summary.json",
+        "data/evaluation/phase3_causal_representation/causal_summary.json",
+        "data/evaluation/phase3_model_stability/stability_summary.json",
+    }
+
+    assert all(isinstance(entry["reproducible"], bool) for entry in entries.values())
+    assert all(entry["reproducibility_note"].strip() for entry in entries.values())
+    # Issue #23 adds a fourth, non-timing entry flagged because its inputs cannot recur.
+    assert {path for path, entry in entries.items() if not entry["reproducible"]} == (
+        timing_affected | {"data/evaluation/phase3_uncertainty/uncertainty_summary.json"}
+    )
+    for path in timing_affected:
+        assert "time.perf_counter" in entries[path]["reproducibility_note"]
+
+
+UNCERTAINTY_PATH = "data/evaluation/phase3_uncertainty/uncertainty_summary.json"
+UNCERTAINTY_ARTIFACT = REPO_ROOT / UNCERTAINTY_PATH
+
+
+def _multi_case(tmp_path: Path, specs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build a multi-entry manifest/registry/artifact set under ``tmp_path``.
+
+    Each spec is ``{"path", "artifact", "reproducible"}`` with optional ``note``,
+    ``digest_override`` and ``top_level_keys``.  ``artifact`` may be a dict or a callable
+    that receives the digests computed so far and returns the dict to serialize, which is
+    how an entry records the digest of an input.
+    """
+
+    entries: list[dict[str, Any]] = []
+    refs: list[dict[str, Any]] = []
+    digests: dict[str, str] = {}
+    for spec in specs:
+        rel = spec["path"]
+        artifact = spec["artifact"]
+        if callable(artifact):
+            artifact = artifact(digests)
+        raw = (json.dumps(artifact, indent=2) + "\n").encode("utf-8")
+        actual_digest = hashlib.sha256(raw).hexdigest()
+        digests[rel] = actual_digest
+        stored_digest = spec.get("digest_override", actual_digest)
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+        entries.append(
+            {
+                "path": rel,
+                "digest": stored_digest,
+                "size_bytes": len(raw),
+                "top_level_keys": spec.get("top_level_keys", sorted(artifact)),
+                "capture_count": None,
+                "shape_note": "synthetic fixture",
+                "reproducible": spec["reproducible"],
+                "reproducibility_note": spec.get("note", "synthetic fixture note"),
+            }
+        )
+        refs.append({"path": rel, "digest": stored_digest, "kind": "artifact", "tracked": False})
+
+    registry = {"schema_version": "1.0.0", "runs": [{"artifact_refs": refs}]}
+    manifest = {"schema_version": "1.0", "generated_by": "test", "artifacts": entries}
+    manifest_file = tmp_path / "manifest.json"
+    registry_file = tmp_path / "registry.json"
+    _write_json(manifest_file, manifest)
+    _write_json(registry_file, registry)
+    return {
+        "manifest": manifest_file,
+        "registry": registry_file,
+        "base_dir": tmp_path,
+        "digests": digests,
+        "entries": {entry["path"]: entry for entry in entries},
+    }
+
+
+def _marked_reproducible_with_bad_input(violations: list[str]) -> list[str]:
+    return [v for v in violations if "recorded inputs include unreproducible" in v]
+
+
+def test_entry_with_unreproducible_input_cannot_be_marked_reproducible(tmp_path: Path) -> None:
+    """Issue #23: a stored ``true`` contradicts a recorded non-reproducible input digest."""
+
+    producer = "data/evaluation/phase3_synthetic/producer.json"
+    consumer = "data/evaluation/phase3_synthetic/consumer.json"
+    case = _multi_case(
+        tmp_path,
+        [
+            {
+                "path": producer,
+                "artifact": {"schema_version": "1.0"},
+                "reproducible": False,
+                "note": "timing-affected bytes",
+            },
+            {
+                "path": consumer,
+                "artifact": lambda digests: {
+                    "schema_version": "1.0",
+                    "inputs": [{"path": producer, "digest": digests[producer]}],
+                },
+                "reproducible": True,
+            },
+        ],
+    )
+
+    _, violations = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+
+    assert any(consumer in v for v in _marked_reproducible_with_bad_input(violations))
+
+
+def test_reproducibility_is_transitive_across_an_input_chain(tmp_path: Path) -> None:
+    """A true-flagged consumer of a true-flagged consumer is still tainted transitively."""
+
+    root = "data/evaluation/phase3_synthetic/"
+    a, b, c = root + "a.json", root + "b.json", root + "c.json"
+    case = _multi_case(
+        tmp_path,
+        [
+            {"path": a, "artifact": {"schema_version": "1.0"}, "reproducible": False},
+            {
+                "path": b,
+                "artifact": lambda digests: {"inputs": [{"path": a, "digest": digests[a]}]},
+                "reproducible": True,
+            },
+            {
+                "path": c,
+                "artifact": lambda digests: {"inputs": [{"path": b, "digest": digests[b]}]},
+                "reproducible": True,
+            },
+        ],
+    )
+
+    _, violations = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+    flagged = " ".join(_marked_reproducible_with_bad_input(violations))
+
+    assert f"manifest entry {b}" in flagged
+    assert f"manifest entry {c}" in flagged
+
+
+def test_verifier_rejects_deliberately_inconsistent_committed_fixture(tmp_path: Path) -> None:
+    """Flipping the committed uncertainty entry back to true must fail the input check."""
+
+    if not UNCERTAINTY_ARTIFACT.is_file():
+        pytest.skip("uncertainty artifact is not present on this checkout")
+
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    for entry in manifest["artifacts"]:
+        if entry["path"] == UNCERTAINTY_PATH:
+            entry["reproducible"] = True
+    manifest_file = tmp_path / "manifest.json"
+    _write_json(manifest_file, manifest)
+
+    report, violations = verify_manifest(manifest_file, REGISTRY_PATH, REPO_ROOT)
+
+    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
+    assert any(
+        UNCERTAINTY_PATH in v for v in _marked_reproducible_with_bad_input(violations)
+    )
+
+
+@pytest.mark.skipif(not UNCERTAINTY_ARTIFACT.is_file(), reason="artifact not regenerated here")
+def test_uncertainty_summary_is_false_with_an_inputs_based_note() -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    entries = {entry["path"]: entry for entry in manifest["artifacts"]}
+    entry = entries[UNCERTAINTY_PATH]
+
+    assert entry["reproducible"] is False
+    note = entry["reproducibility_note"]
+    assert "stability_summary.json" in note
+    assert "causal_summary.json" in note
+    # The note blames the recorded inputs, not the issue #21 timing wording.
+    assert "time.perf_counter" not in note
+
+
+@pytest.mark.skipif(not UNCERTAINTY_ARTIFACT.is_file(), reason="artifact not regenerated here")
+def test_committed_input_graph_is_consistent_and_skips_large_artifacts() -> None:
+    report, violations = verify_manifest(MANIFEST_PATH, REGISTRY_PATH, REPO_ROOT)
+
+    assert violations == []
+    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
+    # No large artifact declares an "inputs" key, so none was loaded for this check.
+    assert report["input_graph_skipped_large"] == []
+
+
+def test_verifier_handles_cyclic_input_graph_without_hanging(tmp_path: Path) -> None:
+    """A malformed cyclic graph must terminate; propagation still reaches the cycle."""
+
+    left = "data/evaluation/phase3_synthetic/cycle_left.json"
+    right = "data/evaluation/phase3_synthetic/cycle_right.json"
+    case = _multi_case(
+        tmp_path,
+        [
+            {
+                "path": left,
+                "artifact": {"inputs": [{"path": right, "digest": "b" * 64}]},
+                "reproducible": False,
+                "digest_override": "a" * 64,
+            },
+            {
+                "path": right,
+                "artifact": {"inputs": [{"path": left, "digest": "a" * 64}]},
+                "reproducible": True,
+                "digest_override": "b" * 64,
+            },
+        ],
+    )
+
+    report, violations = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+
+    assert report["entries"] == 2
+    assert any(right in v for v in _marked_reproducible_with_bad_input(violations))
+

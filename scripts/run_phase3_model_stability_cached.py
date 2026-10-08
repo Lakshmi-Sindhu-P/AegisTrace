@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import math
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -43,6 +44,7 @@ from aegistrace.evaluation.model_family import (
     OPERATING_ALERTS_PER_1000_CAP,
     OPERATING_PRECISION_FLOOR,
     alert_volume_for_scores,
+    artifact_fit_metadata,
     disagreement_report,
     fit_supervised_scores,
     known,
@@ -201,6 +203,7 @@ def _model_result(
         seed=seed,
     )
     detector_name = f"behavioral_{BEHAVIORAL_FEATURE_VERSION}:{name}"
+    print(f"fit_seconds[{name}]: {runtime['fit_seconds']:.6f}", file=sys.stderr)
     fixed = metrics_for_scores(
         detector_name=detector_name,
         validation_records=validation_records,
@@ -259,8 +262,7 @@ def _model_result(
                 threshold=threshold,
             ),
             "alert_volume_at_operating_point": alert_volume,
-            "fit_runtime_seconds": runtime["fit_seconds"],
-            "runtime": runtime,
+            "fit_metadata": artifact_fit_metadata(runtime),
             "interpretability": INTERPRETABILITY[name],
             "parameters": {
                 "class_weight": "balanced"
