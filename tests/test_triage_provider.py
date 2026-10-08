@@ -626,9 +626,7 @@ def test_triage_run_rejects_an_abort_reason_that_contradicts_its_state() -> None
         "freeze_version": "1.0.0",
         "analyst_descriptor": descriptor,
         "adjudicator_descriptor": descriptor,
-        "budget": RunBudget(
-            max_bundles_per_run=1, max_assessments_per_run=2, max_total_calls=2
-        ),
+        "budget": RunBudget(max_bundles_per_run=1, max_assessments_per_run=2, max_total_calls=2),
         "calls_made": 0,
         "synthetic": True,
     }

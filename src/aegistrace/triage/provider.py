@@ -240,12 +240,8 @@ class StubTriageProvider:
         payload = {
             "category": "insufficient_evidence",
             "severity": "low",
-            "summary": (
-                f"stub response for role {request.role.value}; no model was invoked"
-            ),
-            "evidence_summary": (
-                f"mechanical echo of snapshot digest {request.snapshot_digest}"
-            ),
+            "summary": (f"stub response for role {request.role.value}; no model was invoked"),
+            "evidence_summary": (f"mechanical echo of snapshot digest {request.snapshot_digest}"),
             "confidence_statement": (
                 "not applicable: this text is generated mechanically, not inferred"
             ),
