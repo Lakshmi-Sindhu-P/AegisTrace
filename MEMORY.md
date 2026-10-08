@@ -127,6 +127,7 @@ src/aegistrace/
     validation/
     features/
     detection/
+    verification/
     triage/
     evaluation/
     provenance/
@@ -207,7 +208,7 @@ configs/
 
 ### Canonical Concepts
 
-**Status: CURRENT / IMPLEMENTED for event/provenance/manifest contracts; PLANNED, NOT IMPLEMENTED for later entities**
+**Status: CURRENT / IMPLEMENTED for event, provenance, manifest, detection, finding, evidence-bundle, and claim contracts; PLANNED, NOT IMPLEMENTED for triage and review entities**
 
 - The implemented canonical event uses a strict, immutable, versioned envelope plus discriminated network, CTU-13 flow, authentication, command, HTTP, or generic details. It retains deterministic UUIDv5 identity, source/dataset/scenario references, UTC event and ingestion times, optional correlation, labels and label source, raw reference/checksum, adapter/transformation versions, and quality flags. Missing values remain explicit; extra fields and naive timestamps are rejected.
 - A benign or malicious ground-truth label requires `label_source`; unknown labels cannot carry an attack category. Credentials are deliberately excluded from authentication details.
@@ -216,6 +217,7 @@ configs/
 - LLM output is triage over a finding/evidence bundle, not a primary detector in V1.
 - An AI triage record should link findings and evidence, preserve the structured assessment, confidence and uncertainty, unsupported-claim checks, model/provider/prompt metadata, creation time, and human review status.
 - The intended aggregation chain is `event -> detection -> finding -> evidence bundle` with multiple detectors able to support one finding.
+- The implemented finding contract groups related detections by source host and observed-time gap using operational fields only, and never reads a research label, a later-stage model score, or an LLM conclusion. The implemented evidence bundle snapshots finding and detection references, minimal event fields, observed values, per-model score references with their feature versions, and explicit missing context and limitations. The implemented claim contract enforces the epistemic taxonomy and reports an uncited statement as `UNKNOWN_INSUFFICIENT_EVIDENCE` rather than accepting it.
 - Evidence relationships use typed references and DuckDB/Parquet records in V1; no graph database is approved.
 
 ### Amended detection and review direction
@@ -339,6 +341,7 @@ After each meaningful implementation step, explain what was built, why it exists
 | 2026-10-08 | VALIDATED | Ran the frozen-policy held-out exam battery (no threshold search) on four of the five approved captures; capture 44 was deferred because its working set exceeds the 16 GB host memory and it thrashed swap. Result: within training families the policy transfers almost perfectly (50 Neris: precision `0.9993`, recall `0.9987`), but unseen families degrade non-uniformly — 49 (Murlo) recall `0.9675` at precision `0.4694` (precision collapse), 54 (Virut) precision `0.9597` at recall `0.4515` (recall collapse). Unknown-label alert share `33.6%`-`43.1%` on every capture, consistent with the validation pool's `43.7%`. Capture 48's recall `0.1429` rests on only 63 malicious labeled rows and is not a stable estimate. | Issue #6; `scripts/run_phase3_heldout_battery.py`; `data/evaluation/phase3_heldout/heldout_summary.json` (ignored); `docs/phase3_heldout_design.md` Results section. Also required the O(1) prior-window fix (Issue #9) and a memory-lean runner path. No threshold, model, feature, or frozen policy changed, and no tuning followed the result. |
 | 2026-10-08 | VALIDATED | Measured the unknown-label alert workload at the frozen threshold for the four-capture validation pool. At threshold `0.20` the frozen balanced Random Forest records pooled labeled recall `0.9949` at precision `0.9903` but raises `1,189,850` alerts on `2,720,880` unlabeled rows (43.7% of unlabeled traffic; `1,302,368` alerts across all `2,886,156` rows). Pooled recall is dominated by capture 51 (`106,352` of `112,001` positives, recall `0.9999`); capture 53 (NSIS) recall is `0.7703` and capture 46 is `0.9578`, which is the concrete reason for per-capture reporting. The script reproduces the hardening artifact's alert volume exactly (captures 46+53: known_alerts `2,600`, unknown_alerts `183,669`; recorded total `186,269`). | `scripts/report_phase3_unknown_workload.py`; `data/evaluation/phase3_unknown_workload/workload_summary.json` (ignored); `docs/phase3_evaluation_diagnosis.md` Evidence 5; Issue #8. Read-only: no threshold, model, feature, artifact, or frozen policy changed. |
 | 2026-10-08 | APPROVED INTENT / DESIGN | Approved the analyst-outcome evidence program after concluding that no live analyst study is available. Stages, in order: (1) decision-theoretic replay on already-held labels, (2) deterministic reviewer simulation, (3) secondary analysis of published human-factors data. The one available external expert is reserved for independent verification of the *completed* method, not as a source of study data, so the project must exhaust its own options first. | `docs/analyst_outcome_program.md`; Issue #10. Boundaries: Stages 1-3 may not claim human decision quality, analyst behaviour, over-reliance, automation bias, or real SOC outcomes. No detector policy, threshold, feature, or frozen artifact changed. |
+| 2026-10-08 | CURRENT / IMPLEMENTED | Implemented the Milestone 5 deterministic finding and evidence spine in the branch, with no LLM, fusion, UI, or detector-policy change. ML outputs are emitted as evidence-linked `DetectionResult` records that keep each model's own score scale; findings aggregate detections by source host and observed-time gap using operational fields only; evidence bundles snapshot provenance plus explicit missing context and limitations; and a claim-verification layer enforces the epistemic taxonomy, downgrading an uncited claim to `UNKNOWN_INSUFFICIENT_EVIDENCE` instead of accepting it. | Issue #7; `src/aegistrace/schemas/findings.py`, `src/aegistrace/detection/ml.py`, `src/aegistrace/detection/findings.py`, `src/aegistrace/detection/evidence.py`, `src/aegistrace/verification/claims.py`, `tests/test_findings.py`; `docs/architecture.md`. Gate: 80 passed / 90.85% coverage; ruff clean; mypy clean (33 source files); registry, solution-knowledge, Phase 3 evidence, and agent-trace validators pass. Grouping is asserted identical for any window in the open interval between the largest within-burst and smallest between-burst gap. |
 
 ### Open Decisions
 

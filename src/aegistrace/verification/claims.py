@@ -1,0 +1,77 @@
+"""Claim verification against the epistemic taxonomy.
+
+A taxonomy is only worth having if something enforces it. This module reads a :class:`Claim` and
+returns a :class:`ClaimVerification` — it never edits the claim. That separation matters: the
+original statement, including a wrong or unsupported one, stays in the record so that a reviewer can
+see what was asserted, while the verification records what the cited evidence can actually carry.
+
+Verification is deliberately conservative. When a claim cites evidence that cannot support its
+declared category, the claim is not quietly re-labelled into something stronger or waved through; it
+is downgraded to ``UNKNOWN_INSUFFICIENT_EVIDENCE`` and marked unverified.
+"""
+
+from __future__ import annotations
+
+from aegistrace.schemas.findings import Claim, ClaimType, ClaimVerification, EvidenceReference
+
+_MODEL_SCORE = "model_score"
+_REFERENCE_KINDS = frozenset({"external", "repository"})
+
+
+def _kinds(references: tuple[EvidenceReference, ...]) -> set[str]:
+    return {reference.kind for reference in references}
+
+
+def verify_claim(claim: Claim) -> ClaimVerification:
+    """Check a claim against its own cited evidence and report the effective category."""
+
+    kinds = _kinds(claim.evidence_references)
+
+    if claim.claim_type is ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE:
+        return ClaimVerification(
+            claim_id=claim.claim_id,
+            verified=True,
+            effective_type=ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE,
+            reasons=("explicit abstention; the evidence does not support a stronger category",),
+        )
+
+    if not claim.evidence_references:
+        return ClaimVerification(
+            claim_id=claim.claim_id,
+            verified=False,
+            effective_type=ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE,
+            reasons=(
+                "no evidence references were cited; an uncited statement cannot be verified",
+            ),
+        )
+
+    if claim.claim_type is ClaimType.MODEL_INFERENCE and _MODEL_SCORE not in kinds:
+        return ClaimVerification(
+            claim_id=claim.claim_id,
+            verified=False,
+            effective_type=ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE,
+            reasons=(
+                "a model inference must cite at least one model-score reference",
+                "the cited evidence cannot carry a model inference",
+            ),
+        )
+
+    if claim.claim_type is ClaimType.REFERENCE_BACKED_FACT and not (kinds & _REFERENCE_KINDS):
+        return ClaimVerification(
+            claim_id=claim.claim_id,
+            verified=False,
+            effective_type=ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE,
+            reasons=(
+                "a reference-backed fact must cite at least one external or repository reference",
+            ),
+        )
+
+    return ClaimVerification(
+        claim_id=claim.claim_id,
+        verified=True,
+        effective_type=claim.claim_type,
+        reasons=(f"cited evidence supports the declared category ({claim.claim_type.value})",),
+    )
+
+
+__all__ = ["verify_claim"]
