@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import random
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pyarrow.parquet as pq
 
@@ -293,3 +297,100 @@ def test_leakage_audits_pass_clean_non_empty_baseline() -> None:
 
     assert audit_prior_window_causality(result.events)
     assert audit_causal_prior_window(result.events)
+
+
+# --- Issue #22: feature records must be emitted in a canonical order -------------------------
+#
+# Values were always order-invariant (computed over a sorted view), but the records tuple was
+# rebuilt over the raw input, so the caller's iteration order leaked into the artifact bytes.
+# These tests pin the canonical sequence and, crucially, the per-``event_id`` values so the
+# ordering fix cannot silently change any feature value.
+
+_ISSUE_22_BUILDERS: tuple[tuple[str, Any], ...] = (
+    ("network", build_ctu13_features),
+    ("behavioral", build_ctu13_behavioral_features),
+    ("causal", build_ctu13_causal_features),
+)
+
+# Captured before the #22 fix: per-``event_id`` value maps for the fixture. The fix must not
+# change these — only the emitted sequence.
+_ISSUE_22_EXPECTED_VALUE_DIGESTS = {
+    "network": "48435f1e4ad4",
+    "behavioral": "7411b8bf8cb3",
+    "causal": "7c8a256bc0af",
+}
+
+
+def _issue_22_events() -> list[Any]:
+    result = parse_ctu13_binetflow(
+        FIXTURE_PATH, ingested_at=datetime(2026, 9, 21, 1, tzinfo=UTC)
+    )
+    return list(result.events)
+
+
+def _issue_22_orders() -> tuple[list[Any], list[Any], list[Any]]:
+    events = _issue_22_events()
+    reversed_events = list(reversed(events))
+    shuffled_events = list(events)
+    random.Random(22).shuffle(shuffled_events)
+    assert tuple(shuffled_events) != tuple(events)
+    return events, reversed_events, shuffled_events
+
+
+def _event_id_sequence(dataset: Any) -> tuple[str, ...]:
+    return tuple(str(record.event_id) for record in dataset.records)
+
+
+def _value_map_digest(dataset: Any) -> str:
+    mapping = sorted((str(record.event_id), list(record.values)) for record in dataset.records)
+    payload = json.dumps(mapping, default=str).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:12]
+
+
+def test_issue_22_input_order_yields_byte_identical_serialized_output(tmp_path: Path) -> None:
+    from aegistrace.features.behavioral import write_behavioral_feature_parquet
+
+    events, reversed_events, shuffled_events = _issue_22_orders()
+    writers = {
+        "network": write_feature_parquet,
+        "behavioral": write_behavioral_feature_parquet,
+        "causal": write_causal_feature_parquet,
+    }
+    for name, build in _ISSUE_22_BUILDERS:
+        payloads = []
+        sequences = []
+        for label, order in (
+            ("original", events),
+            ("reversed", reversed_events),
+            ("shuffled", shuffled_events),
+        ):
+            dataset = build(order)
+            path = tmp_path / f"{name}-{label}.parquet"
+            writers[name](dataset, path)
+            payloads.append(path.read_bytes())
+            sequences.append(_event_id_sequence(dataset))
+        assert payloads[0] == payloads[1] == payloads[2], name
+        assert sequences[0] == sequences[1] == sequences[2], name
+
+
+def test_issue_22_feature_values_are_unchanged_by_the_ordering_fix() -> None:
+    events, reversed_events, shuffled_events = _issue_22_orders()
+    for name, build in _ISSUE_22_BUILDERS:
+        digests = {
+            _value_map_digest(build(order))
+            for order in (events, reversed_events, shuffled_events)
+        }
+        assert digests == {_ISSUE_22_EXPECTED_VALUE_DIGESTS[name]}, name
+
+
+def test_issue_22_ordering_is_deterministic_within_a_process() -> None:
+    events = _issue_22_events()
+    for name, build in _ISSUE_22_BUILDERS:
+        baseline_sequence = _event_id_sequence(build(events))
+        baseline_matrix = build(events).matrix()
+        for seed in range(8):
+            order = list(events)
+            random.Random(seed).shuffle(order)
+            dataset = build(order)
+            assert _event_id_sequence(dataset) == baseline_sequence, name
+            assert dataset.matrix() == baseline_matrix, name

@@ -275,7 +275,9 @@ def build_ctu13_causal_features(events: Iterable[SecurityEvent]) -> CausalFeatur
         state.last_observed_at = event.observed_at
 
     records: list[CausalFeatureRecord] = []
-    for event in selected:
+    # Issue #22: reuse the same (observed_at, event_id) key used for value computation so the
+    # emitted sequence is canonical and cannot drift from the values.
+    for event in ordered:
         scenario_id = event.source.scenario_id
         assert scenario_id is not None
         records.append(

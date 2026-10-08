@@ -213,7 +213,11 @@ def build_ctu13_features(events: Iterable[SecurityEvent]) -> FeatureDataset:
                 values=_values(details),
             )
         )
-    return FeatureDataset(records=tuple(records))
+    # Issue #22: values are order-invariant, but without canonicalising the emitted
+    # sequence the caller's iteration order leaked into the artifact bytes. Sort by the
+    # natural stable key so values and record order are both canonical.
+    ordered = sorted(records, key=lambda record: str(record.event_id))
+    return FeatureDataset(records=tuple(ordered))
 
 
 def _row(record: FeatureRecord) -> dict[str, Any]:
