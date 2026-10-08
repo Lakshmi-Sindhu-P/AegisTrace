@@ -81,6 +81,62 @@ must state its assumptions as assumptions.
 
 ---
 
+## Stage 1 — Result (2026-10-08): the hypothesis is REFUTED on this data
+
+**The expected result did not happen, and that is the finding.** Routing by uncertainty did **not**
+reach more true positives than routing by model score. It lost on **every** capture, and on two
+captures it was worse than reviewing alerts at random.
+
+Artifact: `data/evaluation/phase3_analyst_replay/replay_summary.json`
+Code: `src/aegistrace/evaluation/analyst_replay.py`, `scripts/run_analyst_outcome_replay.py`
+Frozen threshold `0.20`, no threshold search, model refit from the frozen policy on captures 52+47
+only. Uncertainty is operationalized as **ascending distance from the decision boundary**.
+
+True positives retrieved at a budget of 100 alerts (`model_score` / `uncertainty` / `random`):
+
+| Capture | Family | Labeled | Malicious | TP@100 ms/un/rn | AUC ms/un/rn |
+|---|---|---|---|---|---|
+| 46 | Neris (validation) | 5,561 | 901 | 100 / 84 / 13 | 0.994 / 0.576 / 0.524 |
+| 53 | (validation) | 9,783 | 2,168 | 100 / 37 / 26 | 0.979 / 0.445 / 0.553 |
+| 48 | RBot (previously opened) | 1,732 | 63 | 24 / 20 / 2 | 0.801 / 0.676 / 0.497 |
+| 49 | Murlo (held out) | 78,766 | 6,127 | **100 / 8 / 9** | 0.982 / 0.179 / 0.508 |
+| 50 | Neris (held out) | 214,880 | 184,987 | 100 / 96 / 84 | 1.000 / 0.758 / 0.878 |
+| 54 | Virut (held out) | 71,782 | 40,003 | **100 / 59 / 60** | 0.982 / 0.727 / 0.693 |
+
+**Uncertainty beats model score in 0 of 6 captures.** On capture 49 it retrieves 8 true positives at
+budget 100 while random retrieves 9; on 54 it retrieves 59 while random retrieves 60. Beating a
+random queue is the minimum bar for a routing signal to mean anything, and on those two captures
+uncertainty does not clear it.
+
+**Interpretation.** Alerts sitting near the frozen threshold skew *benign* on these captures. The
+score ranking already concentrates malicious rows at the top, so spending a scarce review budget on
+boundary-adjacent alerts spends it on the rows the model is least able to separate — and those rows
+are mostly benign. Threshold distance is therefore not merely uninformative here; it is
+anti-correlated with maliciousness at the top of the queue.
+
+**What this does and does not refute.** It refutes *threshold-distance* uncertainty as a routing
+signal on these captures with this detector. It does not refute uncertainty routing in general:
+predictive entropy, ensemble disagreement, or calibration-based uncertainty are different
+operationalizations and were not tested. Any future attempt must be registered as a new experiment
+with its own hypothesis, not folded into this one.
+
+**Consequences.**
+
+1. The honest headline for the project is a **negative result**: on this detector and these captures,
+   model-score ordering is the strongest available routing signal, and the uncertainty signal that
+   motivated Stage 1 actively misleads.
+2. Stage 2's sweep must therefore treat routing policy as a variable it may *fail* to improve on,
+   and must report model score as the incumbent baseline rather than an also-ran.
+3. Stage 3's literature must be read for evidence about *which* alert properties predict analyst
+   usefulness. The result above suggests that decision-boundary proximity is not one of them.
+4. No tuning followed this result, and none may: the detector policy and threshold are frozen.
+
+**Boundary, restated because it matters.** This measures the value of the *routing* of
+already-computed scores. It is not a study of human cognition, and it supports no claim about analyst
+behaviour, over-reliance, trust calibration, or automation bias.
+
+---
+
 ## Deferred: external expert verification
 
 Once Stages 1–3 are complete, the external expert is asked to review:

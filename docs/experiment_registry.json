@@ -9,8 +9,12 @@
       "status": "PROTOTYPE",
       "created_at": "2026-09-22T12:00:00Z",
       "code_version": "f2e7227",
-      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
-      "feature_versions": ["1.1.0"],
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.1.0"
+      ],
       "training_scenarios": [
         "CTU-Malware-Capture-Botnet-52",
         "CTU-Malware-Capture-Botnet-47"
@@ -19,7 +23,9 @@
         "CTU-Malware-Capture-Botnet-46",
         "CTU-Malware-Capture-Botnet-53"
       ],
-      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
       "seed": 42,
       "command": "uv run python scripts/run_phase3_model_family_benchmark.py",
       "configuration": {
@@ -56,8 +62,12 @@
       "status": "VALIDATED",
       "created_at": "2026-09-22T16:15:00Z",
       "code_version": "f2e7227",
-      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
-      "feature_versions": ["1.1.0"],
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.1.0"
+      ],
       "training_scenarios": [
         "CTU-Malware-Capture-Botnet-52",
         "CTU-Malware-Capture-Botnet-47"
@@ -68,11 +78,17 @@
         "CTU-Malware-Capture-Botnet-45",
         "CTU-Malware-Capture-Botnet-51"
       ],
-      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
       "seed": 42,
       "command": "uv run python scripts/run_phase3_model_stability_cached.py",
       "configuration": {
-        "models": ["random_forest", "hist_gradient_boosting", "svm"],
+        "models": [
+          "random_forest",
+          "hist_gradient_boosting",
+          "svm"
+        ],
         "precision_floor": 0.95,
         "alerts_per_1000_cap": 200,
         "score_thresholds": "model-specific validation search"
@@ -98,8 +114,12 @@
       "status": "PROTOTYPE",
       "created_at": "2026-09-29T01:00:00Z",
       "code_version": "f2e7227",
-      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
-      "feature_versions": ["1.2.0"],
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.2.0"
+      ],
       "training_scenarios": [
         "CTU-Malware-Capture-Botnet-52",
         "CTU-Malware-Capture-Botnet-47"
@@ -110,11 +130,17 @@
         "CTU-Malware-Capture-Botnet-45",
         "CTU-Malware-Capture-Botnet-51"
       ],
-      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
       "seed": 42,
       "command": "uv run python scripts/run_phase3_causal_representation.py",
       "configuration": {
-        "models": ["random_forest", "hist_gradient_boosting", "svm"],
+        "models": [
+          "random_forest",
+          "hist_gradient_boosting",
+          "svm"
+        ],
         "operating_policy": "precision >= 0.95 and <= 200 alerts per 1000 labeled rows",
         "unknown_labels": "context only; excluded from supervised ground truth"
       },
@@ -139,8 +165,13 @@
       "status": "VALIDATED",
       "created_at": "2026-09-29T03:15:00Z",
       "code_version": "f2e7227",
-      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
-      "feature_versions": ["1.1.0", "1.2.0"],
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.1.0",
+        "1.2.0"
+      ],
       "training_scenarios": [
         "CTU-Malware-Capture-Botnet-52",
         "CTU-Malware-Capture-Botnet-47"
@@ -151,12 +182,22 @@
         "CTU-Malware-Capture-Botnet-45",
         "CTU-Malware-Capture-Botnet-51"
       ],
-      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
       "seed": 42,
       "command": "uv run python scripts/analyze_phase3_causal_overlap.py --created-at 2026-09-29T03:15:00Z",
       "configuration": {
-        "models": ["random_forest", "svm"],
-        "case_categories": ["causal_only", "reference_only", "both_residual", "both_union"],
+        "models": [
+          "random_forest",
+          "svm"
+        ],
+        "case_categories": [
+          "causal_only",
+          "reference_only",
+          "both_residual",
+          "both_union"
+        ],
         "model_refit": false,
         "threshold_selection": "none; frozen artifact predictions"
       },
@@ -181,8 +222,13 @@
       "status": "VALIDATED",
       "created_at": "2026-09-30T09:15:00Z",
       "code_version": "f2e7227",
-      "dataset_versions": ["ctu13-2011-bidirectional-flow-labels-v1"],
-      "feature_versions": ["1.1.0", "1.2.0"],
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.1.0",
+        "1.2.0"
+      ],
       "training_scenarios": [
         "CTU-Malware-Capture-Botnet-52",
         "CTU-Malware-Capture-Botnet-47"
@@ -193,7 +239,9 @@
         "CTU-Malware-Capture-Botnet-45",
         "CTU-Malware-Capture-Botnet-51"
       ],
-      "sealed_scenarios": ["CTU-Malware-Capture-Botnet-48"],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
       "seed": 42,
       "command": "uv run python scripts/summarize_phase3_uncertainty.py --created-at 2026-09-30T09:15:00Z",
       "configuration": {
@@ -215,6 +263,66 @@
         "docs/methodology.md"
       ],
       "claim_boundary": "Aggregate-count uncertainty only; no PR-AUC uncertainty or operational generalization claim."
+    },
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-analyst-outcome-replay-1.0.0",
+      "name": "Decision-theoretic replay of alert routing policies at a fixed reviewer budget",
+      "status": "VALIDATED",
+      "created_at": "2026-10-08T21:00:00Z",
+      "code_version": "48f7e7a",
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.1.0"
+      ],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53"
+      ],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
+      "seed": 42,
+      "command": "uv run python scripts/run_analyst_outcome_replay.py --created-at 2026-10-08T21:00:00Z",
+      "configuration": {
+        "threshold": 0.2,
+        "threshold_search": "none",
+        "refit": true,
+        "refit_scope": "frozen training captures only",
+        "routing_policies": [
+          "model_score",
+          "uncertainty",
+          "random",
+          "oracle"
+        ],
+        "uncertainty_operationalization": "ascending absolute distance from the frozen threshold",
+        "routing_seed": 42,
+        "pooled_reporting": false,
+        "unknown_rows_excluded_from_metrics": true,
+        "result": "NEGATIVE - hypothesis refuted",
+        "result_detail": "Uncertainty beats model_score in 0 of 6 captures. At a budget of 100 alerts, capture 49 retrieves 8 true positives under uncertainty versus 100 under model_score and 9 at random; capture 54 retrieves 59 versus 100 and 60 at random. Boundary-adjacent alerts skew benign on these captures.",
+        "refutes": "threshold-distance uncertainty as a routing signal, for this detector on these captures",
+        "does_not_refute": "uncertainty routing in general; predictive entropy, ensemble disagreement, and calibration-based uncertainty were not tested"
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_analyst_replay/replay_summary.json",
+          "digest": "1d00ec29273207958d3a48d0c63b8b1a69fcc8e5d3375c342a2c59169a956abe",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/analyst_outcome_program.md",
+        "docs/phase3_heldout_design.md"
+      ],
+      "claim_boundary": "Measures the value of ROUTING already-computed scores at a fixed reviewer budget. Supports no claim about analyst behaviour, over-reliance, trust calibration, or automation bias."
     }
   ]
 }
