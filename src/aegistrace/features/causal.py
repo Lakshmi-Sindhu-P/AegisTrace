@@ -297,7 +297,10 @@ def audit_causal_prior_window(events: Iterable[SecurityEvent]) -> bool:
     original = tuple(events)
     baseline = build_ctu13_causal_features(original)
     if not baseline.records:
-        return True
+        # An empty baseline means there was nothing to measure, not that the prior-window
+        # invariant held. Returning True here reported a PASSED leakage audit having examined
+        # nothing (issue #18); conservatively report non-passing instead.
+        return False
     last = max(original, key=lambda event: event.observed_at)
     future_source = last.source.model_copy(
         update={"source_event_id": f"{last.source.source_event_id}-causal-future-audit"}

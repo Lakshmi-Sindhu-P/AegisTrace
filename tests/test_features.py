@@ -274,3 +274,22 @@ def test_causal_features_add_prior_reuse_recency_and_long_window(tmp_path: Path)
     output = tmp_path / "causal.parquet"
     write_causal_feature_parquet(dataset, output)
     assert pq.read_table(output).num_rows == 2
+
+
+def test_behavioral_leakage_audit_does_not_pass_empty_baseline() -> None:
+    """An empty baseline is unmeasurable, so it must not report a passing audit (issue #18)."""
+
+    assert not audit_prior_window_causality(())
+
+
+def test_causal_leakage_audit_does_not_pass_empty_baseline() -> None:
+    """An empty baseline is unmeasurable, so it must not report a passing audit (issue #18)."""
+
+    assert not audit_causal_prior_window(())
+
+
+def test_leakage_audits_pass_clean_non_empty_baseline() -> None:
+    result = parse_ctu13_binetflow(FIXTURE_PATH, ingested_at=datetime(2026, 9, 21, 1, tzinfo=UTC))
+
+    assert audit_prior_window_causality(result.events)
+    assert audit_causal_prior_window(result.events)
