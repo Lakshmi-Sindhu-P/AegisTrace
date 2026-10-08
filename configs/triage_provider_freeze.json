@@ -65,7 +65,7 @@
       "IP addresses do reach the snapshot as evidence, which is inherent: host identity is the grouping key. CTU-13 is a public, published research dataset, so these addresses are already public."
     ],
     "residual_risk": "Egress of public research-dataset addresses to a third-party provider is a governance decision, not a technical one. The provider's retention and training-use terms must be recorded before the first call.",
-    "transport_status": "NOT IMPLEMENTED - no client exists"
+    "transport_status": "IMPLEMENTED - offline only. The provider boundary exists (src/aegistrace/triage/provider.py, src/aegistrace/triage/run.py) and MUST refuse any provider whose descriptor requires egress unless the freeze status above is an approved value; under the current BLOCKED_HUMAN status a remote provider is refused with PermissionError. No network-capable import exists in the boundary. Only recorded-replay and stub providers can run."
   },
   "budget": {
     "basis": "bounds the experiment so a runaway loop cannot consume resources before a human reviews interim output",
@@ -96,7 +96,7 @@
   "smoke_test": {
     "required_before_full_run": true,
     "protocol": "one bundle, both roles, verify the returned payloads are admissible assessments, verify both roles report the identical snapshot digest, and verify the comparison record is produced",
-    "status": "NOT RUN - blocked on both unmet conditions above"
+    "status": "NOT RUN - still blocked on provider access and assessor independence. The smoke test can now be exercised offline against recorded or stub providers to validate the plumbing, but that does NOT satisfy the protocol: it validates structure, not a real assessor, and must never be reported as a triage result."
   },
-  "next_action_for_owner": "Designate the two assessor configurations and approve a credential path, or approve deferring the run. The corpus, schemas, isolation, and agreement engine are complete and independent of this decision."
+  "next_action_for_owner": "Designate the two assessor configurations, approve a credential path, and set the status above to an approved value - which is the switch that permits egress in code. Alternatively approve deferring the run. The corpus, schemas, isolation, agreement engine, and the provider boundary are complete and independent of this decision; every one of them is offline."
 }
