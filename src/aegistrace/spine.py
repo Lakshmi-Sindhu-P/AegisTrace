@@ -62,13 +62,21 @@ class SpineRecord(FrozenSchema):
 
 
 def spine_id_for(
-    *, evidence_bundle_id: UUID, run_id: UUID, snapshot_digest: str
+    *, evidence_bundle_id: UUID, comparison_id: UUID, snapshot_digest: str
 ) -> UUID:
-    """Derive a stable spine identity from the bundle, the run, and the snapshot digest."""
+    """Derive a stable spine identity from the bundle, its comparison, and the snapshot digest.
+
+    Issue #20: the identity is derived from the record's own content — its bundle, the comparison
+    already determined by that bundle's own assessments, and its snapshot digest — rather than from
+    the enclosing ``run_id``. ``run_id`` is batch-scoped, so including it made every record's
+    identity depend on every other record in the run: reversing the bundle order or adding an
+    unrelated bundle changed the ``spine_id`` of records whose own content was byte-identical.
+    ``run_id`` remains on :class:`SpineRecord` as batch context only.
+    """
 
     return uuid5(
         SPINE_ID_NAMESPACE,
-        f"{evidence_bundle_id}:{run_id}:{snapshot_digest}",
+        f"{evidence_bundle_id}:{comparison_id}:{snapshot_digest}",
     )
 
 
@@ -147,7 +155,7 @@ def run_spine(
         record = SpineRecord(
             spine_id=spine_id_for(
                 evidence_bundle_id=bundle.evidence_bundle_id,
-                run_id=run.run_id,
+                comparison_id=comparison.comparison_id,
                 snapshot_digest=digest,
             ),
             created_at=created_at,

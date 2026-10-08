@@ -243,3 +243,47 @@ def test_remote_descriptor_is_refused_under_the_repo_freeze() -> None:
             freeze=FREEZE,
             created_at=CREATED_AT,
         )
+
+
+def _record_for(records, bundle: EvidenceBundle):
+    return next(r for r in records if r.evidence_bundle_id == bundle.evidence_bundle_id)
+
+
+def test_bundle_order_does_not_change_run_identity() -> None:
+    """Issue #20: the same bundle set in any order must yield one run_id."""
+
+    bundle_a = _bundle("10.0.0.1")
+    bundle_b = _bundle("10.0.0.2")
+
+    forward = _run((bundle_a, bundle_b))
+    reverse = _run((bundle_b, bundle_a))
+
+    assert forward[0].triage_run.run_id == reverse[0].triage_run.run_id
+
+
+def test_unrelated_bundle_does_not_change_spine_id() -> None:
+    """Issue #20: adding an unrelated bundle must not change an existing record's spine_id."""
+
+    bundle_a = _bundle("10.0.0.1")
+    bundle_b = _bundle("10.0.0.2")
+    bundle_c = _bundle("10.0.0.3")
+
+    under_ab = _record_for(_run((bundle_a, bundle_b)), bundle_a)
+    under_abc = _record_for(_run((bundle_a, bundle_b, bundle_c)), bundle_a)
+    under_ba = _record_for(_run((bundle_b, bundle_a)), bundle_a)
+
+    assert under_ab.spine_id == under_abc.spine_id == under_ba.spine_id
+
+
+def test_genuinely_different_bundles_get_different_spine_ids() -> None:
+    records = _run((_bundle("10.0.0.1"), _bundle("10.0.0.2")))
+
+    assert len({record.spine_id for record in records}) == len(records)
+
+
+def test_run_id_is_still_present_on_every_record() -> None:
+    records = _run((_bundle("10.0.0.1"), _bundle("10.0.0.2")))
+
+    assert all(record.triage_run.run_id for record in records)
+    assert len({record.triage_run.run_id for record in records}) == 1
+

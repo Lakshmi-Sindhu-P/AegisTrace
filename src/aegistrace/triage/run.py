@@ -227,14 +227,18 @@ def triage_run_id_for(
     snapshot_digests: tuple[str, ...],
     created_at: datetime,
 ) -> UUID:
-    """Derive a run identity from the freeze, the descriptors, the inputs, and the timestamp."""
+    """Derive a run identity from the freeze, the descriptors, the inputs, and the timestamp.
+
+    The snapshot digests are sorted before hashing so the run identity does not depend on the order
+    in which the bundles were supplied, matching every other identity function in the project.
+    """
 
     identity = json.dumps(
         [
             freeze_version,
             analyst_descriptor.model_dump(mode="json"),
             adjudicator_descriptor.model_dump(mode="json"),
-            list(snapshot_digests),
+            sorted(snapshot_digests),
             normalize_utc(created_at).isoformat(),
         ],
         ensure_ascii=False,
