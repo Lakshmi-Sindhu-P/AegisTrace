@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,11 @@ def main() -> int:
     if errors:
         for error in errors:
             print(error)
+        return 1
+    # Issue #19: an empty or blank-only trace previously produced no errors and exited 0,
+    # making a missing trace indistinguishable from a valid one at the gate.
+    if valid == 0:
+        print(f"{args.path}: no records found", file=sys.stderr)
         return 1
     print(json.dumps({"path": str(args.path), "valid_records": valid}, sort_keys=True))
     return 0

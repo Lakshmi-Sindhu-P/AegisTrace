@@ -79,3 +79,30 @@ def test_label_distribution_cannot_exceed_records() -> None:
 
     with pytest.raises(ValidationError, match="record_count"):
         DatasetManifest.model_validate(payload)
+
+
+def test_empty_label_distribution_rejected_when_records_exist() -> None:
+    """Issue #19: `sum({}) == 0 <= record_count` let an unlabelled non-empty set pass."""
+
+    payload = valid_manifest_payload()
+    payload["label_distribution"] = {}
+
+    with pytest.raises(ValidationError, match="label_distribution must not be empty"):
+        DatasetManifest.model_validate(payload)
+
+
+def test_empty_label_distribution_allowed_for_empty_dataset() -> None:
+    """A dataset with no records may legitimately carry no label distribution."""
+
+    payload = valid_manifest_payload()
+    payload["record_count"] = 0
+    files = payload["files"]
+    assert isinstance(files, list)
+    assert isinstance(files[0], dict)
+    files[0]["record_count"] = 0
+    payload["label_distribution"] = {}
+
+    manifest = DatasetManifest.model_validate(payload)
+
+    assert manifest.record_count == 0
+    assert manifest.label_distribution == {}

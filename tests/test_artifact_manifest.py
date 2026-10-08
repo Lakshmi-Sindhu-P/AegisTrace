@@ -129,6 +129,21 @@ def test_absent_artifacts_do_not_fail(tmp_path: Path) -> None:
     assert report["absent"] == report["entries"] == 9
 
 
+def test_zero_entry_manifest_fails(tmp_path: Path) -> None:
+    """Issue #19: an empty manifest plus an empty registry made both loops vacuous."""
+
+    manifest_file = tmp_path / "manifest.json"
+    registry_file = tmp_path / "registry.json"
+    _write_json(manifest_file, {"schema_version": "1.0", "generated_by": "test", "artifacts": []})
+    _write_json(registry_file, {"schema_version": "1.0.0", "runs": []})
+
+    report, violations = verify_manifest(manifest_file, registry_file, tmp_path)
+
+    assert any("manifest is empty" in violation for violation in violations)
+    assert report["entries"] == 0
+    assert report["verified_on_disk"] == 0
+
+
 def test_altered_digest_fails(tmp_path: Path) -> None:
     case = _case(tmp_path, {"schema_version": "1.0", "captures": []})
     manifest = json.loads(case["manifest"].read_text(encoding="utf-8"))

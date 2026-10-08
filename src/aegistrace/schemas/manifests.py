@@ -93,6 +93,12 @@ class DatasetManifest(FrozenSchema):
             and self.observed_end < self.observed_start
         ):
             raise ValueError("observed_end must not precede observed_start")
+        # Issue #19: an unlabelled dataset may be legitimately unlabelled, so an empty
+        # distribution is rejected only when records exist to label.  Without this floor a
+        # manifest declaring record_count > 0 with no label_distribution passed vacuously
+        # (sum({}) == 0 <= record_count for any record_count).
+        if self.record_count > 0 and not self.label_distribution:
+            raise ValueError("label_distribution must not be empty when record_count > 0")
         if sum(self.label_distribution.values()) > self.record_count:
             raise ValueError("label distribution cannot exceed record_count")
         return self

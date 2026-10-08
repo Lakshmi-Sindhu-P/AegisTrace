@@ -84,6 +84,12 @@ def verify_manifest(
     entries: list[dict[str, Any]] = list(manifest.get("artifacts", []))
     manifest_paths = [entry["path"] for entry in entries]
 
+    # Issue #19: a manifest with no entries and a registry with no artifact_refs made both
+    # set-difference loops vacuous, so the script reported zero violations.  Absent artifacts
+    # are still counted rather than failed; only the empty-manifest floor is added here.
+    if not entries:
+        violations.append("manifest is empty: expected at least one artifact entry")
+
     seen: set[str] = set()
     for path in manifest_paths:
         if path in seen:
