@@ -320,7 +320,7 @@ _ISSUE_22_BUILDERS: tuple[tuple[str, Any], ...] = (
 # ``(event_id, values)`` pairs, so it moves with the id scheme as well as with the values.
 #
 # Both properties were verified when re-capturing, and the check below now separates them:
-#   * with ``event_id_for(..., version=1)`` patched into BOTH the parser and the validator, all
+#   * with ``event_id_v1_for`` patched into BOTH the parser and the validator, all
 #     three previous digests reproduce EXACTLY (48435f1e4ad4 / 7411b8bf8cb3 / 7c8a256bc0af);
 #   * the id-free value multisets are byte-identical between v1 and v2.
 # So only the identifiers changed; no feature value did.
