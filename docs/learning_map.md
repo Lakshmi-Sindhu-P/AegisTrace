@@ -42,14 +42,23 @@ a conclusion can never be stronger than the evidence beneath it.
 
 Do not re-litigate these from memory; the analysis is written down.
 
+**Start here:** [`pending_decisions.md`](pending_decisions.md) is the single index of everything
+waiting on the owner — one line per decision, with the recommendation and a pointer to the detail.
+It deliberately does not restate the arguments.
+
 | Item | Where the full analysis is |
 |---|---|
+| Every pending decision, with category and recommendation | [`pending_decisions.md`](pending_decisions.md) |
 | The ten-field register for #37, #38, #40, #42, with autonomy category per issue | [`identity_decision_register.md`](identity_decision_register.md) |
 | UI direction — three options, none approved | [`ui_design_directions.md`](ui_design_directions.md) |
 | What `HumanReview.tier` means (required vs conducted) | Issue #30 |
 | Which end owns the triage sample | Issue #32 |
 | Whether an empty-but-valid ingest refuses or records | Issue #37 |
-| Making the validator bypass impossible by construction | Issue #42 |
+| Whether the registry validator should reject a command that omits a repair step | Issue #27 |
+
+**Closed, kept for the reasoning:** #42 (validator bypass — the bypass is now impossible by
+construction, so the rule needed no answer), #38 and #40 (the identity rule already governs them),
+and the identity family #35, #36, #39, #41.
 
 ## Teaching notes, by phase
 
