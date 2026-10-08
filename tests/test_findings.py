@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 import pytest
 from pydantic import BaseModel
@@ -315,6 +316,70 @@ def test_claim_verification_enforces_the_taxonomy() -> None:
         created_at=CREATED_AT,
     )
     assert verify_claim(uncited_reference).verified is False
+
+
+EvidenceKind = Literal[
+    "event", "detection", "model_score", "feature_version", "external", "repository"
+]
+
+
+def _claim(claim_type: ClaimType, *kinds: EvidenceKind) -> Claim:
+    """Build a cited claim of one category from its evidence kinds."""
+
+    statement = f"a {claim_type.value} claim"
+    return Claim(
+        claim_id=claim_id_for(claim_type=claim_type.value, statement=statement),
+        claim_type=claim_type,
+        statement=statement,
+        evidence_references=tuple(
+            EvidenceReference(kind=kind, reference=f"{kind}:1") for kind in kinds
+        ),
+        created_at=CREATED_AT,
+    )
+
+
+def test_observed_and_deterministic_claims_require_observational_evidence() -> None:
+    """Issue #15: the two weakest evidence tiers must not carry the strongest categories."""
+
+    unsupported_observation = verify_claim(_claim(ClaimType.OBSERVED_FACT, "model_score"))
+    assert unsupported_observation.verified is False
+    assert unsupported_observation.effective_type is ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE
+
+    unsupported_derivation = verify_claim(
+        _claim(ClaimType.DETERMINISTIC_DERIVATION, "model_score")
+    )
+    assert unsupported_derivation.verified is False
+    assert unsupported_derivation.effective_type is ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE
+
+    observed = verify_claim(_claim(ClaimType.OBSERVED_FACT, "event"))
+    assert observed.verified is True
+    assert observed.effective_type is ClaimType.OBSERVED_FACT
+
+    derived = verify_claim(_claim(ClaimType.DETERMINISTIC_DERIVATION, "detection"))
+    assert derived.verified is True
+    assert derived.effective_type is ClaimType.DETERMINISTIC_DERIVATION
+
+    observed_with_score = verify_claim(
+        _claim(ClaimType.OBSERVED_FACT, "event", "model_score")
+    )
+    assert observed_with_score.verified is True
+    assert observed_with_score.effective_type is ClaimType.OBSERVED_FACT
+
+    interpretation = verify_claim(_claim(ClaimType.AI_INTERPRETATION, "model_score"))
+    assert interpretation.verified is True
+    assert interpretation.effective_type is ClaimType.AI_INTERPRETATION
+
+    abstention = verify_claim(_claim(ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE))
+    assert abstention.verified is True
+    assert abstention.effective_type is ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE
+
+    inference = verify_claim(_claim(ClaimType.MODEL_INFERENCE, "model_score"))
+    assert inference.verified is True
+    assert inference.effective_type is ClaimType.MODEL_INFERENCE
+
+    reference_backed = verify_claim(_claim(ClaimType.REFERENCE_BACKED_FACT, "model_score"))
+    assert reference_backed.verified is False
+    assert reference_backed.effective_type is ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE
 
 
 def test_evidence_bundle_states_its_own_missing_context() -> None:

@@ -15,6 +15,8 @@ from __future__ import annotations
 from aegistrace.schemas.findings import Claim, ClaimType, ClaimVerification, EvidenceReference
 
 _MODEL_SCORE = "model_score"
+_OBSERVATION_KINDS = frozenset({"event"})
+_DERIVATION_KINDS = frozenset({"event", "detection"})
 _REFERENCE_KINDS = frozenset({"external", "repository"})
 
 
@@ -42,6 +44,30 @@ def verify_claim(claim: Claim) -> ClaimVerification:
             effective_type=ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE,
             reasons=(
                 "no evidence references were cited; an uncited statement cannot be verified",
+            ),
+        )
+
+    # These two rules are minimums, not exclusions: a claim may cite additional evidence of any
+    # kind and still pass. Issue #15 records the reasoning.
+    if claim.claim_type is ClaimType.OBSERVED_FACT and not (kinds & _OBSERVATION_KINDS):
+        return ClaimVerification(
+            claim_id=claim.claim_id,
+            verified=False,
+            effective_type=ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE,
+            reasons=(
+                "an observed fact must cite at least one event reference",
+                "a model score is not an observation",
+            ),
+        )
+
+    if claim.claim_type is ClaimType.DETERMINISTIC_DERIVATION and not (kinds & _DERIVATION_KINDS):
+        return ClaimVerification(
+            claim_id=claim.claim_id,
+            verified=False,
+            effective_type=ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE,
+            reasons=(
+                "a deterministic derivation must cite at least one event or detection reference",
+                "nothing about a model score is deterministic",
             ),
         )
 
