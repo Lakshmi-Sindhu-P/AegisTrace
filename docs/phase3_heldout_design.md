@@ -64,7 +64,17 @@ Five captures, opened once as a battery:
 - **Different-family (3 tests):** captures 50 (Neris), 49 (Murlo), 54 (Virut). Tests cross-family
   generality. These are the families not already present in the validation pool (which has RBot and
   NSIS).
-- **Acquisition:** 44, 50, 49, 54 (approximately 1.5 GB, in progress). Capture 48 is already local.
+- **Acquisition:** completed 2026-10-08 for the focused four (raw files are ignored and not
+  committed). Source: `https://mcfp.felk.cvut.cz/publicDatasets/CTU-Malware-Capture-Botnet-<n>/detailed-bidirectional-flow-labels/`.
+
+  | Capture | Family | File | Bytes | SHA-256 |
+  |---|---|---|---:|---|
+  | 44 (Sc3) | RBot | `capture20110812.binetflow` | 639,643,247 | `0ebcd1df082bb5f85f8254c3857b02fdbb597c9b2ee7c50f908cc24ca92c0054` |
+  | 50 (Sc9) | Neris | `capture20110817.binetflow` | 285,841,002 | `c8de257b6207ec3624467da62e91841073256fbdad5434db5eb5667588178bab` |
+  | 49 (Sc8) | Murlo | `capture20110816-3.binetflow` | 403,955,463 | `c3884b629e152e3144c2d7250d01939c199fa8a135a88f0c775ee3be0237f01f` |
+  | 54 (Sc13) | Virut | `capture20110815-3.binetflow` | 262,668,288 | `d1d8aaea885870c64615261bd78ebf569e7d5b41adab2a6f3008702f4ded4503` |
+
+  Capture 48 is already local.
 - **Spares:** 42 and 43 (Neris) if a further replicate is wanted.
 
 ### Capture 48 status (important)
