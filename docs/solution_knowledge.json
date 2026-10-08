@@ -151,6 +151,49 @@
           "superseded_by": null
         }
       ]
+    },
+    {
+      "solution_id": "solution:diagnose-repeated-delegation-failure-as-provider-quota",
+      "current_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "status": "current",
+          "originating_issue": "Lakshmi-Sindhu-P/AegisTrace#12",
+          "originating_trace": "97eb9cd8066d77248c5ab11fb5f4a083c4bd0270b48009d0811fbb297909606b",
+          "applicable_code_version": "eafb475",
+          "problem_pattern": "Every delegated subagent fails immediately with no output and an empty working tree, across all models advertised by one provider. The failure looks like model incompetence and invites the wrong remedy: hunting for a better model, or abandoning delegation and doing all work in the main session.",
+          "solution_principle": "Before attributing repeated delegation failures to model capability, hold the model fixed and vary the provider. Identical failure across every model on one provider is a transport or quota fault, not a model defect. Confirm the working tree is clean after each failure so no partial work is silently lost, and verify the first successful delegation's output independently rather than trusting its report.",
+          "validation_refs": [
+            "8 consecutive delegations routed to provider opencode-go failed with no output across all 5 advertised models, and the working tree was verified clean after each",
+            "the first delegation routed to provider opencode-go-2 completed successfully",
+            "that delegation's output was independently reproduced: corpus digest 031050e3feda3dd652604f6fb002bd21e7fbb3e3128196f525c1fa4f2881329f, byte-identical across runs and order-independent"
+          ],
+          "evidence_refs": [
+            {
+              "kind": "issue",
+              "reference": "https://github.com/Lakshmi-Sindhu-P/AegisTrace/issues/12",
+              "locator": "Milestone 8 implementation"
+            },
+            {
+              "kind": "trace",
+              "reference": ".context/traces/phase3-provider-freeze.jsonl",
+              "locator": "trace_id=97eb9cd8066d77248c5ab11fb5f4a083c4bd0270b48009d0811fbb297909606b"
+            },
+            {
+              "kind": "repository",
+              "reference": "src/aegistrace/triage/corpus.py",
+              "locator": "the artifact produced by the first successful delegation"
+            },
+            {
+              "kind": "repository",
+              "reference": "configs/triage_provider_freeze.json",
+              "locator": "records the provider catalog observed"
+            }
+          ],
+          "supersedes": null
+        }
+      ]
     }
   ]
 }
