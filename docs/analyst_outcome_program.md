@@ -159,3 +159,61 @@ collected human data and must not be reported as one.
   see, so Stage 2 should express its reviewer input in terms of findings and evidence bundles once
   those exist.
 - This program does not change the frozen detector policy, and no stage tunes it.
+
+---
+
+## Stage 2 — Result (2026-10-08): the stage 1 refutation survives the sweep
+
+**The negative result is not an artifact of one routing rule.** Stage 1 compared exactly one retrieval
+rule at a time. Stage 2 replaces that with an explicit reviewer *policy* and sweeps it.
+
+Artifact: `data/evaluation/phase3_reviewer_simulation/simulation_summary.json`
+Code: `src/aegistrace/evaluation/reviewer_simulation.py`, `scripts/run_reviewer_simulation.py`
+
+**The reviewer model — a policy, not a person.** A reviewer works alerts from a queue ordered by the
+routing policy, up to a shift budget `B`, and escalates an alert iff `score >= S`. Alerts past `B` are
+never worked. Sweep: `S` in {0.1, 0.2, 0.3, 0.5, 0.7}, `B` in {10, 25, 50, 100, 200}, over
+`model_score`, `uncertainty`, and `random` — 75 policies per capture, 450 across six captures.
+`oracle` is omitted because it reads ground-truth labels and is not an achievable policy.
+
+**Result.** Uncertainty beats `model_score` at equal `(S, B)` in **0 of 6 captures** — zero wins across
+all 450 simulated reviewer policies. `model_score` is the best routing policy at every strictness and
+every shift budget on every capture. Best true escalations at `B = 200` (`model_score` / `uncertainty`
+/ `random`):
+
+| Capture | ms | un | rn |
+|---|---|---|---|
+| 46 | 200 | 175 | 32 |
+| 53 | 200 | 116 | 34 |
+| 48 | 10 | 2 | 0 |
+| 49 | 200 | 10 | 15 |
+| 50 | 200 | 192 | 169 |
+| 54 | 200 | 104 | 60 |
+
+Random again beats uncertainty on capture 49 (15 vs 10), independently reproducing stage 1's finding
+that uncertainty fails the random-queue bar there.
+
+**A detector observation worth recording.** On capture 48 at `S = 0.1, B = 200`, `model_score` yields
+only 10 true escalations although stage 1 retrieved 33 true positives in the top 200. Ranking parity
+between the two was verified (identical ordering and tie-breaks). The explanation is the escalation
+rule meeting the probability scale: roughly 23 of those top-200 malicious rows carry a RandomForest
+probability below 0.1, so `score >= 0.1` never escalates them. This is a real property of the frozen
+detector's transfer to capture 48 — the same recall collapse the held-out battery recorded — and it
+means an absolute strictness threshold is a blunt instrument on a poorly-calibrated capture.
+
+**Metric convention, stated to prevent misreading.** `false_escalation_rate` in this artifact is
+`false_escalations / escalations` — the complement of precision, i.e. the share of escalations that
+were wrong — **not** false escalations per alert reviewed. The implemented convention differs from the
+one first specified and is recorded here and in the module docstring rather than left ambiguous.
+
+**Consequence for the program.** Stage 1 and Stage 2 agree: on this detector and these captures,
+model-score ordering is the strongest available routing signal, and threshold-distance uncertainty is
+not merely weaker but sometimes worse than chance. Stage 3's literature review should therefore be
+read for *which* alert properties predict analyst usefulness, not to rescue this signal. See
+[`human_factors_evidence.md`](human_factors_evidence.md).
+
+**Boundary, unchanged and load-bearing.** This measures the value of routing already-computed scores
+under a stated reviewer assumption set. It is not observed human behaviour and supports no claim about
+analyst decision quality, over-reliance, trust calibration, or automation bias. The shift budgets and
+strictness values are **free assumptions**: a literature scan found no published source that bounds
+alerts-per-shift workload.
