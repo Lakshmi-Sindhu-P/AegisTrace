@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -85,33 +86,69 @@ def _summarize(event: SecurityEvent) -> EventSummary:
     )
 
 
-def build_evidence_bundle(
+@dataclass(frozen=True)
+class EvidenceIndex:
+    """Lookup tables shared across every finding in one batch.
+
+    Building ``detections_by_id`` and ``events_by_id`` once is what removes the quadratic blow-up:
+    the old per-finding rebuild re-iterated the inputs on every one of a batch's ``F`` bundle calls,
+    making the pipeline O(F x D + F x E); iterating each input a single time collapses that to
+    O(D + E).
+    """
+
+    detections_by_id: dict[UUID, DetectionResult]
+    events_by_id: dict[UUID, SecurityEvent]
+
+    @classmethod
+    def from_inputs(
+        cls,
+        detections: Iterable[DetectionResult],
+        events: Iterable[SecurityEvent],
+    ) -> EvidenceIndex:
+        """Materialize both inputs once, tolerating single-shot generators."""
+        return cls(
+            detections_by_id={detection.detection_id: detection for detection in detections},
+            events_by_id={event.event_id: event for event in events},
+        )
+
+
+def _bundle_from_index(
     finding: Finding,
-    detections: Iterable[DetectionResult],
-    events: Iterable[SecurityEvent],
+    index: EvidenceIndex,
     *,
     created_at: datetime,
-    bundle_version: str = EVIDENCE_BUNDLE_VERSION,
-    external_findings: Iterable[ExternalFinding] = (),
-    missing_context: Iterable[str] = DEFAULT_MISSING_CONTEXT,
-    limitations: Iterable[str] = DEFAULT_LIMITATIONS,
+    bundle_version: str,
+    external_findings: Iterable[ExternalFinding],
+    missing_context: Iterable[str],
+    limitations: Iterable[str],
 ) -> EvidenceBundle:
-    """Snapshot everything behind ``finding`` without losing a single identifier."""
+    """Snapshot everything behind one finding using an already-built ``EvidenceIndex``."""
 
     wanted = set(finding.detection_ids)
     selected = sorted(
-        (d for d in detections if d.detection_id in wanted),
+        (index.detections_by_id[did] for did in wanted if did in index.detections_by_id),
         key=lambda d: str(d.detection_id),
     )
     if not selected:
+        if not index.detections_by_id:
+            raise ValueError(
+                "no matching detections to bundle: the detections input yielded no detections"
+            )
         raise ValueError("finding has no matching detections to bundle")
 
-    events_by_id: dict[UUID, SecurityEvent] = {event.event_id: event for event in events}
     summaries = sorted(
-        (_summarize(events_by_id[eid]) for eid in finding.event_ids if eid in events_by_id),
+        (
+            _summarize(index.events_by_id[eid])
+            for eid in finding.event_ids
+            if eid in index.events_by_id
+        ),
         key=lambda summary: (summary.observed_at, str(summary.event_id)),
     )
     if not summaries:
+        if not index.events_by_id:
+            raise ValueError(
+                "finding has no matching events to bundle: the events input yielded no events"
+            )
         raise ValueError("finding has no matching events to bundle")
 
     observed: dict[tuple[str, str, str], DetectionEvidence] = {}
@@ -161,9 +198,76 @@ def build_evidence_bundle(
     )
 
 
+def build_evidence_bundle(
+    finding: Finding,
+    detections: Iterable[DetectionResult],
+    events: Iterable[SecurityEvent],
+    *,
+    created_at: datetime,
+    bundle_version: str = EVIDENCE_BUNDLE_VERSION,
+    external_findings: Iterable[ExternalFinding] = (),
+    missing_context: Iterable[str] = DEFAULT_MISSING_CONTEXT,
+    limitations: Iterable[str] = DEFAULT_LIMITATIONS,
+    index: EvidenceIndex | None = None,
+) -> EvidenceBundle:
+    """Snapshot everything behind one ``finding`` without losing a single identifier.
+
+    ``detections`` and ``events`` are accepted as ``Iterable`` (either materialized or single-shot)
+    and are materialized into an :class:`EvidenceIndex` exactly once. Pass a prebuilt ``index`` when
+    bundling a batch of findings so the inputs are not re-iterated per finding.
+    """
+
+    built = EvidenceIndex.from_inputs(detections, events) if index is None else index
+    return _bundle_from_index(
+        finding,
+        built,
+        created_at=created_at,
+        bundle_version=bundle_version,
+        external_findings=external_findings,
+        missing_context=missing_context,
+        limitations=limitations,
+    )
+
+
+def build_evidence_bundles(
+    findings: Iterable[Finding],
+    detections: Iterable[DetectionResult],
+    events: Iterable[SecurityEvent],
+    *,
+    created_at: datetime,
+    bundle_version: str = EVIDENCE_BUNDLE_VERSION,
+    external_findings: Iterable[ExternalFinding] = (),
+    missing_context: Iterable[str] = DEFAULT_MISSING_CONTEXT,
+    limitations: Iterable[str] = DEFAULT_LIMITATIONS,
+    index: EvidenceIndex | None = None,
+) -> tuple[EvidenceBundle, ...]:
+    """Build a bundle for every finding while iterating the inputs exactly once.
+
+    This is the scaling-safe entry point: one :class:`EvidenceIndex` is built from ``detections``
+    and ``events`` and shared across all findings, so the cost is O(D + E), independent of the
+    number of findings. Single-shot generators are accepted for any of the inputs.
+    """
+
+    built = EvidenceIndex.from_inputs(detections, events) if index is None else index
+    return tuple(
+        _bundle_from_index(
+            finding,
+            built,
+            created_at=created_at,
+            bundle_version=bundle_version,
+            external_findings=external_findings,
+            missing_context=missing_context,
+            limitations=limitations,
+        )
+        for finding in findings
+    )
+
+
 __all__ = [
     "DEFAULT_LIMITATIONS",
     "DEFAULT_MISSING_CONTEXT",
     "EVIDENCE_BUNDLE_VERSION",
+    "EvidenceIndex",
     "build_evidence_bundle",
+    "build_evidence_bundles",
 ]

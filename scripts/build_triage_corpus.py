@@ -16,7 +16,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from aegistrace.detection.evidence import build_evidence_bundle
+from aegistrace.detection.evidence import build_evidence_bundles
 from aegistrace.detection.findings import aggregate_findings
 from aegistrace.detection.ml import emit_ml_detections
 from aegistrace.ingestion.ctu13 import parse_ctu13_binetflow
@@ -76,10 +76,7 @@ def main() -> int:
         created_at=created_at,
     )
     findings = aggregate_findings(detections, events, created_at=created_at)
-    bundles = tuple(
-        build_evidence_bundle(finding, detections, events, created_at=created_at)
-        for finding in findings
-    )
+    bundles = build_evidence_bundles(findings, detections, events, created_at=created_at)
     corpus = build_corpus(bundles, created_at=created_at, corpus_version=args.corpus_version)
     write_corpus(corpus, args.output)
 
