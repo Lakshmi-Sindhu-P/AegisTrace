@@ -25,6 +25,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 CLAIM_TYPES = frozenset(
     {
         "OBSERVED_FACT",
@@ -195,8 +197,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ledger_path = Path(args.ledger)
     registry_path = Path(args.registry)
-    ledger = _load(ledger_path)
-    registry = _load(registry_path)
+    try:
+        ledger = _load(ledger_path)
+    except (OSError, json.JSONDecodeError, ValidationError, TypeError) as error:
+        print(f"cannot load ledger {ledger_path}: {error}", file=sys.stderr)
+        return 1
+
+    try:
+        registry = _load(registry_path)
+    except (OSError, json.JSONDecodeError, ValidationError, TypeError) as error:
+        print(f"cannot load registry {registry_path}: {error}", file=sys.stderr)
+        return 1
 
     violations = validate_data(
         ledger,

@@ -12,6 +12,7 @@ from scripts.validate_results_ledger import (
     build_summary,
     validate_data,
 )
+from scripts.validate_results_ledger import main as validate_ledger_main
 
 REGISTRY = {
     "schema_version": "1.0.0",
@@ -68,6 +69,33 @@ def test_empty_ledger_fails() -> None:
 
     violations = check([])
     assert any("empty" in violation for violation in violations)
+
+
+def test_malformed_ledger_reports_without_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Issue #25: malformed JSON must be a reported violation, not a traceback."""
+
+    bad = tmp_path / "bad.json"
+    bad.write_text("{ not valid json", encoding="utf-8")
+    assert validate_ledger_main([str(bad)]) == 1
+    reported = capsys.readouterr()
+    message = reported.out + reported.err
+    assert str(bad) in message
+    assert "Traceback" not in message
+
+
+def test_absent_ledger_reports_without_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Issue #25: a missing path must be a reported violation, not a traceback."""
+
+    missing = tmp_path / "does_not_exist.json"
+    assert validate_ledger_main([str(missing)]) == 1
+    reported = capsys.readouterr()
+    message = reported.out + reported.err
+    assert str(missing) in message
+    assert "Traceback" not in message
 
 
 def test_real_ledger_passes_the_empty_floor() -> None:
