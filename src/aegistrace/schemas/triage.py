@@ -217,6 +217,36 @@ class TriageComparison(FrozenSchema):
             raise ValueError("an agreeing comparison cannot carry disagreement reasons")
         return self
 
+    @model_validator(mode="after")
+    def validate_roles_map_assessments(self) -> TriageComparison:
+        """Require ``roles`` to be a one-to-one, distinct mapping onto ``assessment_ids``.
+
+        Both rules were already contracts of the comparison engine, which builds the two tuples in
+        parallel and refuses two assessments that share a role because independence needs one
+        assessment per role. The schema did not state them, and a comparison is read back from
+        stored artifacts rather than rebuilt, so a record whose ``roles`` could not map its
+        ``assessment_ids`` loaded without complaint. That matters because
+        ``left_only_evidence_ids`` is interpreted through ``roles[0]``: a misaligned record silently
+        attributes evidence to the wrong assessor, and a same-role record claims an independence it
+        does not have.
+
+        An empty ``roles`` is the "not recorded" state and stays legal.
+        """
+
+        if not self.roles:
+            return self
+        if len(self.roles) != len(self.assessment_ids):
+            raise ValueError(
+                "roles must map assessment_ids one-to-one: "
+                f"{len(self.roles)} roles for {len(self.assessment_ids)} assessments"
+            )
+        if len(set(self.roles)) != len(self.roles):
+            raise ValueError(
+                "each assessment must come from a distinct role; independence requires one "
+                "assessment per role"
+            )
+        return self
+
 
 def _identity(*parts: object) -> str:
     return json.dumps(parts, ensure_ascii=False, separators=(",", ":"), default=str)

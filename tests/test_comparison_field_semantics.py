@@ -17,6 +17,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from aegistrace.detection.evidence import build_evidence_bundle
 from aegistrace.detection.findings import aggregate_findings
 from aegistrace.detection.ml import emit_ml_detections
@@ -26,6 +28,7 @@ from aegistrace.schemas.triage import (
     AssessorRole,
     ProviderMetadata,
     RawResponseReference,
+    TriageAssessment,
     TriageComparison,
 )
 from aegistrace.triage.agreement import compare_assessments
@@ -162,3 +165,33 @@ def test_the_convention_is_documented_on_the_schema() -> None:
     for name in ("left_only_evidence_ids", "right_only_evidence_ids"):
         description = TriageComparison.model_fields[name].description or ""
         assert "roles[" in description
+
+
+def test_the_engine_refuses_two_assessments_that_share_a_role() -> None:
+    """Independence requires one assessment per role, and the schema now enforces it too.
+
+    The engine has always refused a same-role pair. The schema did not, and a comparison is read
+    back from stored artifacts rather than rebuilt, so the guarantee was bypassed on the read path.
+    This drives both over the same shape.
+    """
+
+    bundle = _bundle()
+    finding_cite = str(bundle.finding_id)
+    detection_cite = str(bundle.detection_ids[0])
+
+    # Two assessments that share a role, citing different (both real) evidence, so their identities
+    # differ and the engine's self-comparison check does not fire first.
+    first = _assess(bundle, AssessorRole.TRIAGE_ANALYST, [finding_cite])
+    second = _assess(bundle, AssessorRole.TRIAGE_ANALYST, [detection_cite])
+    assert isinstance(first, TriageAssessment) and isinstance(second, TriageAssessment)
+    assert first.triage_id != second.triage_id, "the probe must vary its input"
+
+    with pytest.raises(ValueError, match="share role"):
+        compare_assessments(first, second, created_at=CREATED_AT)
+
+    # A comparison the engine does produce carries aligned, distinct roles that round-trip.
+    adjudicator = _assess(bundle, AssessorRole.EXPERT_ADJUDICATOR, [detection_cite])
+    produced = compare_assessments(first, adjudicator, created_at=CREATED_AT)
+    assert len(produced.roles) == len(produced.assessment_ids) == 2
+    assert len(set(produced.roles)) == 2
+    assert TriageComparison.model_validate(produced.model_dump(mode="json")).roles == produced.roles
