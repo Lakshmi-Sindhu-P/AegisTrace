@@ -522,3 +522,191 @@ def test_verifier_handles_cyclic_input_graph_without_hanging(tmp_path: Path) -> 
     assert report["entries"] == 2
     assert any(right in v for v in _marked_reproducible_with_bad_input(violations))
 
+
+def _graph_entry(
+    path: str,
+    *,
+    digest: str,
+    top_level_keys: list[str],
+    reproducible: bool,
+    recorded_inputs: list[str] | None = None,
+    size_bytes: int = 128,
+) -> dict[str, Any]:
+    """Build one manifest entry for the issue #24 committed-edge cases."""
+
+    entry: dict[str, Any] = {
+        "path": path,
+        "digest": digest,
+        "size_bytes": size_bytes,
+        "top_level_keys": top_level_keys,
+        "capture_count": None,
+        "reproducible": reproducible,
+        "reproducibility_note": "synthetic fixture note",
+    }
+    if recorded_inputs is not None:
+        entry["recorded_inputs"] = recorded_inputs
+    return entry
+
+
+def _edge_case(tmp_path: Path, entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Write a manifest/registry pair for hand-built entries; artifacts are written by callers."""
+
+    refs = [
+        {"path": entry["path"], "digest": entry["digest"], "kind": "artifact", "tracked": False}
+        for entry in entries
+    ]
+    manifest = {"schema_version": "1.0", "generated_by": "test", "artifacts": entries}
+    registry = {"schema_version": "1.0.0", "runs": [{"artifact_refs": refs}]}
+    manifest_file = tmp_path / "manifest.json"
+    registry_file = tmp_path / "registry.json"
+    _write_json(manifest_file, manifest)
+    _write_json(registry_file, registry)
+    return {"manifest": manifest_file, "registry": registry_file, "base_dir": tmp_path}
+
+
+def test_fresh_clone_transitive_check_fails_using_only_committed_edges(tmp_path: Path) -> None:
+    """Issue #24: committed edges alone reject a stale ``reproducible: true`` on a bare clone."""
+
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    for entry in manifest["artifacts"]:
+        if entry["path"] == UNCERTAINTY_PATH:
+            entry["reproducible"] = True
+    manifest_file = tmp_path / "artifact_manifest.json"
+    _write_json(manifest_file, manifest)
+
+    report, violations = verify_manifest(manifest_file, REGISTRY_PATH, tmp_path)
+
+    assert report["verified_on_disk"] == 0
+    assert report["absent"] == report["entries"] == 9
+    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
+    assert report["input_graph_unverified"] == {UNCERTAINTY_PATH: "absent"}
+    assert any(UNCERTAINTY_PATH in v for v in _marked_reproducible_with_bad_input(violations))
+
+
+def test_unverified_inputs_are_reported_with_reasons(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #24: absent, unreadable and over-ceiling inputs are named, never silently passed."""
+
+    root = "data/evaluation/phase3_synthetic/"
+    producer, absent, unreadable, large = (
+        root + "producer.json",
+        root + "absent.json",
+        root + "unreadable.json",
+        root + "large.json",
+    )
+    entries = [
+        _graph_entry(
+            producer, digest="1" * 64, top_level_keys=["schema_version"], reproducible=False
+        ),
+        _graph_entry(
+            absent,
+            digest="2" * 64,
+            top_level_keys=["inputs"],
+            reproducible=False,
+            recorded_inputs=[producer],
+        ),
+        _graph_entry(
+            unreadable,
+            digest="3" * 64,
+            top_level_keys=["inputs"],
+            reproducible=False,
+            recorded_inputs=[producer],
+        ),
+        _graph_entry(
+            large,
+            digest="4" * 64,
+            top_level_keys=["inputs"],
+            reproducible=False,
+            recorded_inputs=[producer],
+            size_bytes=9 * 1024 * 1024,
+        ),
+    ]
+    case = _edge_case(tmp_path, entries)
+    target = tmp_path / unreadable
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{}", encoding="utf-8")
+
+    original_read_text = Path.read_text
+
+    def fake_read_text(self: Path, *args: Any, **kwargs: Any) -> str:
+        if self.name == "unreadable.json":
+            raise OSError("permission denied")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+
+    report, _ = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+
+    assert report["input_graph_unverified"] == {
+        absent: "absent",
+        unreadable: "unreadable",
+        large: "over the size ceiling",
+    }
+
+
+def test_declared_inputs_without_readable_array_is_violation(tmp_path: Path) -> None:
+    """Issue #24: recorded ``inputs`` metadata contradicting the payload is a violation."""
+
+    path = "data/evaluation/phase3_synthetic/no_inputs.json"
+    artifact = {"schema_version": "1.0"}
+    raw = (json.dumps(artifact, indent=2) + "\n").encode("utf-8")
+    entry = _graph_entry(
+        path,
+        digest=hashlib.sha256(raw).hexdigest(),
+        top_level_keys=["inputs", "schema_version"],
+        reproducible=False,
+        size_bytes=len(raw),
+    )
+    target = tmp_path / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(raw)
+    case = _edge_case(tmp_path, [entry])
+
+    _, violations = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+
+    assert any("no readable 'inputs' list" in v for v in violations)
+
+
+def test_committed_edges_disagreeing_with_artifact_is_violation(tmp_path: Path) -> None:
+    """Issue #24: a committed graph staler than the artifact would silently under-check."""
+
+    root = "data/evaluation/phase3_synthetic/"
+    producer, consumer, ghost = root + "a.json", root + "b.json", root + "ghost.json"
+    producer_digest = "1" * 64
+    consumer_raw = (
+        json.dumps({"inputs": [{"path": producer, "digest": producer_digest}]}, indent=2) + "\n"
+    ).encode("utf-8")
+    entries = [
+        _graph_entry(
+            producer, digest=producer_digest, top_level_keys=["schema_version"], reproducible=False
+        ),
+        _graph_entry(
+            consumer,
+            digest=hashlib.sha256(consumer_raw).hexdigest(),
+            top_level_keys=["inputs"],
+            reproducible=False,
+            recorded_inputs=[ghost],
+        ),
+    ]
+    target = tmp_path / consumer
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(consumer_raw)
+    case = _edge_case(tmp_path, entries)
+
+    _, violations = verify_manifest(case["manifest"], case["registry"], case["base_dir"])
+
+    assert any("committed 'recorded_inputs' disagree" in v for v in violations)
+
+
+@pytest.mark.skipif(not UNCERTAINTY_ARTIFACT.is_file(), reason="artifact not regenerated here")
+def test_committed_manifest_passes_and_reports_no_unverified_inputs() -> None:
+    """Requirement (d): the committed manifest still passes against the real workspace."""
+
+    report, violations = verify_manifest(MANIFEST_PATH, REGISTRY_PATH, REPO_ROOT)
+
+    assert violations == []
+    assert report["input_graph_checked"] == [UNCERTAINTY_PATH]
+    assert report["input_graph_unverified"] == {}
+    assert report["absent"] == 0
+
