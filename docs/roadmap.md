@@ -60,14 +60,19 @@ tuning.
 
 | Stage | Status | Smallest defensible objective |
 |---|---|---|
-| Findings and evidence bundles | `PLANNED` | Produce immutable investigation units that retain every contributing event, detector output, score, rule, and limitation. |
-| Reference-backed verification | `PLANNED` | Retrieve vetted MITRE/CISA/NVD/Zeek/Cowrie/dataset references with explicit source and retrieval provenance. |
-| LLM A triage | `PLANNED` | Summarize bounded evidence, uncertainty, and next step in structured output. |
-| LLM B adjudication | `PLANNED` | Independently challenge the same evidence without seeing LLM A; freeze both outputs before comparison. |
-| Agreement/conflict engine | `PLANNED` | Deterministically label corroboration, contradiction, insufficient evidence, disagreement, and escalation. |
-| Tiered human review | `PLANNED` | Separate machine-verifiable checks, guided junior review, expert review, and insufficient-evidence outcomes. |
+| Findings and evidence bundles | `IMPLEMENTED` | Produce immutable investigation units that retain every contributing event, detector output, score, rule, and limitation. |
+| Reference-backed verification | `PARTIAL` | Retrieve vetted MITRE/CISA/NVD/Zeek/Cowrie/dataset references with explicit source and retrieval provenance. Claim verification is implemented; external reference retrieval is not. |
+| LLM A triage | `PARTIAL` | Summarize bounded evidence, uncertainty, and next step in structured output. Assessor isolation, input snapshotting, and assessment admission are implemented; the provider run is `BLOCKED_HUMAN` on credentials and demonstrated independence. |
+| LLM B adjudication | `PARTIAL` | Independently challenge the same evidence without seeing LLM A; freeze both outputs before comparison. Same boundary as LLM A. |
+| Agreement/conflict engine | `IMPLEMENTED` | Deterministically label corroboration, contradiction, insufficient evidence, disagreement, and escalation. |
+| Tiered human review | `IMPLEMENTED` | Separate machine-verifiable checks, guided junior review, expert review, and insufficient-evidence outcomes. |
 | Reviewer training mode | `PLANNED` | Teach basic triage using trusted references and feedback without implying expert certification. |
-| Local review UI | `PLANNED` | Surface evidence, model inference, uncertainty, AI comparison, and immutable review history. |
+| Local review UI | `DESIGN PROPOSED` | Surface evidence, model inference, uncertainty, AI comparison, and immutable review history. Three directions proposed in `docs/ui_design_directions.md`; awaiting owner approval, no implementation started. |
+
+**Status vocabulary.** `IMPLEMENTED` means code and tests exist and the gate passes. `PARTIAL` means
+some components exist and the boundary is named in the row. `DESIGN PROPOSED` means a direction is
+written but not approved. `PLANNED` means none of it exists. Reconciled against the committed tree on
+2026-10-08; a prior revision of this table marked several implemented stages as `PLANNED`.
 
 ## Optional research, only if evidence justifies it
 
