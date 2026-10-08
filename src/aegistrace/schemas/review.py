@@ -76,6 +76,30 @@ class TierAssignment(FrozenSchema):
     machine_checks: tuple[MachineCheck, ...] = ()
 
 
+def _identity(*parts: object) -> str:
+    return json.dumps(parts, ensure_ascii=False, separators=(",", ":"), default=str)
+
+
+def review_id_for(
+    *,
+    subject_triage_id: UUID,
+    reviewer_ref: str,
+    decision: str,
+    reviewed_at: datetime,
+) -> UUID:
+    """Derive a review identity from its subject, reviewer, decision, and time."""
+
+    return uuid5(
+        REVIEW_ID_NAMESPACE,
+        _identity(
+            str(subject_triage_id),
+            reviewer_ref,
+            str(decision),
+            normalize_utc(reviewed_at).isoformat(),
+        ),
+    )
+
+
 class HumanReview(FrozenSchema):
     """One reviewer's immutable disposition of one triage assessment."""
 
@@ -103,6 +127,33 @@ class HumanReview(FrozenSchema):
             raise ValueError("a revising review must reference the review it supersedes")
         return self
 
+    @model_validator(mode="after")
+    def validate_review_coherence(self) -> HumanReview:
+        if (
+            self.decision is ReviewDecision.ESCALATE
+            and self.escalation_state is EscalationState.NONE
+        ):
+            raise ValueError("an escalating review must carry a non-NONE escalation state")
+        if (
+            self.escalation_state is not EscalationState.NONE
+            and self.decision is not ReviewDecision.ESCALATE
+        ):
+            raise ValueError(
+                "a non-NONE escalation state requires an escalate decision"
+            )
+        expected_id = review_id_for(
+            subject_triage_id=self.subject_triage_id,
+            reviewer_ref=self.reviewer_ref,
+            decision=self.decision,
+            reviewed_at=self.reviewed_at,
+        )
+        if self.review_id != expected_id:
+            raise ValueError(
+                f"review_id {self.review_id} does not match the expected "
+                f"review_id_for(...) value {expected_id}"
+            )
+        return self
+
 
 class ReviewHistory(FrozenSchema):
     """The append-only chain of reviews for one triage subject."""
@@ -117,30 +168,6 @@ class ReviewHistory(FrozenSchema):
             if review.subject_triage_id != self.subject_triage_id:
                 raise ValueError("every review in a history must share the subject triage id")
         return self
-
-
-def _identity(*parts: object) -> str:
-    return json.dumps(parts, ensure_ascii=False, separators=(",", ":"), default=str)
-
-
-def review_id_for(
-    *,
-    subject_triage_id: UUID,
-    reviewer_ref: str,
-    decision: str,
-    reviewed_at: datetime,
-) -> UUID:
-    """Derive a review identity from its subject, reviewer, decision, and time."""
-
-    return uuid5(
-        REVIEW_ID_NAMESPACE,
-        _identity(
-            str(subject_triage_id),
-            reviewer_ref,
-            str(decision),
-            normalize_utc(reviewed_at).isoformat(),
-        ),
-    )
 
 
 __all__ = [

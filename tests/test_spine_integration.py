@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytest
 
@@ -35,6 +35,7 @@ from aegistrace.schemas.review import (
     ReviewHistory,
     ReviewTier,
     TierAssignment,
+    review_id_for,
 )
 from aegistrace.schemas.triage import AssessorRole
 from aegistrace.spine import run_spine
@@ -205,7 +206,12 @@ def test_spine_raises_if_a_review_were_present(monkeypatch: pytest.MonkeyPatch) 
     def _pre_reviewed_history(subject_triage_id: UUID) -> ReviewHistory:
         history = new_history(subject_triage_id)
         review = HumanReview(
-            review_id=uuid4(),
+            review_id=review_id_for(
+                subject_triage_id=subject_triage_id,
+                reviewer_ref="integration-test",
+                decision=ReviewDecision.CONFIRM,
+                reviewed_at=CREATED_AT,
+            ),
             subject_triage_id=subject_triage_id,
             subject_role=AssessorRole.TRIAGE_ANALYST,
             reviewer_ref="integration-test",

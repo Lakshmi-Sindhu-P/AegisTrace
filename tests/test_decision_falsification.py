@@ -41,6 +41,7 @@ from aegistrace.schemas.review import (
     HumanReview,
     ReviewDecision,
     ReviewTier,
+    review_id_for,
 )
 from aegistrace.schemas.triage import (
     AssessorRole,
@@ -429,7 +430,12 @@ def test_spine_refuses_record_with_a_review() -> None:
     )[0]
 
     review = HumanReview(
-        review_id=uuid4(),
+        review_id=review_id_for(
+            subject_triage_id=record.review_history.subject_triage_id,
+            reviewer_ref="falsification-suite",
+            decision=ReviewDecision.CONFIRM,
+            reviewed_at=CREATED_AT,
+        ),
         subject_triage_id=record.review_history.subject_triage_id,
         subject_role=AssessorRole.TRIAGE_ANALYST,
         reviewer_ref="falsification-suite",
