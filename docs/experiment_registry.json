@@ -395,6 +395,116 @@
         "docs/human_factors_evidence.md"
       ],
       "claim_boundary": "A simulated reviewer under a stated assumption set, not observed human behaviour. Bounds no claim about analyst decision quality, over-reliance, trust calibration, or automation bias. Shift budgets and strictness values are free assumptions with no published anchor."
+    },
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-heldout-exam-battery-1.1.0",
+      "name": "Frozen-policy held-out CTU-13 exam battery (4 captures, one same-family)",
+      "status": "VALIDATED",
+      "created_at": "2026-10-08T15:30:00Z",
+      "code_version": "b78d58a",
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.1.0"
+      ],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53",
+        "CTU-Malware-Capture-Botnet-45",
+        "CTU-Malware-Capture-Botnet-51"
+      ],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
+      "seed": 42,
+      "command": "uv run python scripts/run_phase3_heldout_battery.py --acknowledge-sealed-opening --created-at 2026-10-08T15:30:00Z",
+      "configuration": {
+        "policy_id": "aegistrace-phase3-behavioral-rf-validation-frozen-v1",
+        "policy_path": "configs/phase3_frozen_policy.json",
+        "model": "random_forest",
+        "threshold": 0.2,
+        "threshold_search": "none",
+        "class_weight": "balanced",
+        "exam_scenarios": [
+          "CTU-Malware-Capture-Botnet-48",
+          "CTU-Malware-Capture-Botnet-50",
+          "CTU-Malware-Capture-Botnet-49",
+          "CTU-Malware-Capture-Botnet-54"
+        ],
+        "sealed_opening_acknowledged": true,
+        "result_summary": "Per-capture held-out operating point at the frozen threshold of 0.20, with per-capture reporting rather than a pooled figure. Capture 48 (same family) precision 0.8182, recall 0.1429, 9 of 63 malicious flows caught. Capture 50 precision 0.9993, recall 0.9987. Capture 49 precision 0.4694, recall 0.9675. Capture 54 precision 0.9597, recall 0.4515. Unknown-label alert share 33.6 to 43.1 percent on these captures. No threshold search and no tuning of any kind."
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_heldout/heldout_summary.json",
+          "digest": "e7f8a5825de1f1d7906cedb7ae7524510bf1545001f43cdc96e18111aa985e54",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/phase3_heldout_design.md",
+        "docs/evaluation.md"
+      ],
+      "claim_boundary": "Four held-out captures scored once at a frozen threshold with no search. Capture 48 was the previously sealed scenario, so its result is an opening, not independent external validation. Not operational generalization, and not a claim about the roughly 94 percent of validation flows without an authoritative label."
+    },
+    {
+      "schema_version": "1.0.0",
+      "experiment_id": "phase3-unknown-workload-1.1.0",
+      "name": "Frozen-threshold unknown-label workload share on cross-scenario validation",
+      "status": "VALIDATED",
+      "created_at": "2026-10-08T13:00:00Z",
+      "code_version": "0161f96",
+      "dataset_versions": [
+        "ctu13-2011-bidirectional-flow-labels-v1"
+      ],
+      "feature_versions": [
+        "1.1.0"
+      ],
+      "training_scenarios": [
+        "CTU-Malware-Capture-Botnet-52",
+        "CTU-Malware-Capture-Botnet-47"
+      ],
+      "validation_scenarios": [
+        "CTU-Malware-Capture-Botnet-46",
+        "CTU-Malware-Capture-Botnet-53",
+        "CTU-Malware-Capture-Botnet-45",
+        "CTU-Malware-Capture-Botnet-51"
+      ],
+      "sealed_scenarios": [
+        "CTU-Malware-Capture-Botnet-48"
+      ],
+      "seed": 42,
+      "command": "uv run python scripts/report_phase3_unknown_workload.py --created-at 2026-10-08T13:00:00Z",
+      "configuration": {
+        "policy_id": "aegistrace-phase3-behavioral-rf-validation-frozen-v1",
+        "policy_path": "configs/phase3_frozen_policy.json",
+        "model": "random_forest",
+        "threshold": 0.2,
+        "threshold_search": "none",
+        "class_weight": "balanced",
+        "result_summary": "Unknown-label rows are scored and reported as a workload signal, never as false positives. Across captures 46, 53, 45 and 51 the alert stream is 40.2 to 45.7 percent unknown-label, and unknown rows are 2,720,880 of 2,886,156 total rows, or 94.3 percent. This figure covers only those four captures and must not be quoted for the held-out captures, whose unknown-label alert share is 33.6 to 43.1 percent."
+      },
+      "artifact_refs": [
+        {
+          "path": "data/evaluation/phase3_unknown_workload/workload_summary.json",
+          "digest": "8c0237b5f8a89e8f33deee2c726369f538a706224c32fbe9a0c77fe13e35ac84",
+          "kind": "artifact",
+          "tracked": false
+        }
+      ],
+      "documentation_refs": [
+        "docs/limitations.md",
+        "docs/evaluation.md",
+        "docs/phase3_evaluation_diagnosis.md"
+      ],
+      "claim_boundary": "A workload measurement on four cross-scenario validation captures, not a detection-quality claim. Unknown-label rows are excluded from labeled metrics and are not counted as false positives. The measured share is specific to these four captures."
     }
   ]
 }
