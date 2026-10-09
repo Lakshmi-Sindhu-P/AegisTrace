@@ -172,9 +172,11 @@ def test_snapshot_fields_is_a_literal_not_a_projection() -> None:
             "created_at",
         }
     ) == SNAPSHOT_FIELDS
-    # If SNAPSHOT_FIELDS is a projection, these are the same set by construction and this is
-    # vacuous; kept only as a companion to the concrete assertion above.
-    assert set(EvidenceBundle.model_fields) == SNAPSHOT_FIELDS
+    # A companion `assert set(EvidenceBundle.model_fields) == SNAPSHOT_FIELDS` used to sit here.
+    # It was removed rather than kept: if SNAPSHOT_FIELDS is a projection of that same class the
+    # comparison is true by construction, which is the defect issue #36 is about. A companion
+    # assertion that cannot fail adds a passing test without adding a guarantee.
+    assert "created_at" in SNAPSHOT_FIELDS
 
 
 def test_ground_truth_label_stops_at_the_bundle_boundary() -> None:

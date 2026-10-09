@@ -69,6 +69,9 @@ def test_issue_34_the_overstating_wording_is_gone() -> None:
     """
 
     verification = verify_claim(_claim(ClaimType.MODEL_INFERENCE, "model_score", "model_score:1"))
+    # `assert not any(...)` is vacuously true over an empty list, so the absence of the old wording
+    # only means something once there is at least one reason for it to be absent from.
+    assert verification.reasons, "the probe must produce reasons, or the assertion below is vacuous"
     assert not any(
         "supports the declared category" in reason for reason in verification.reasons
     ), "the old wording claimed more than the function established"
@@ -109,6 +112,7 @@ def test_issue_34_controls_are_unchanged() -> None:
     abstention_result = verify_claim(abstention)
     assert abstention_result.verified is True
     assert abstention_result.effective_type is ClaimType.UNKNOWN_INSUFFICIENT_EVIDENCE
+    assert abstention_result.reasons
     assert not any("resolution was NOT checked" in r for r in abstention_result.reasons)
 
     # 4. AI_INTERPRETATION on a model score is still verified.
@@ -125,4 +129,5 @@ def test_issue_34_downgrade_paths_do_not_gain_the_resolution_caveat() -> None:
 
     downgraded = verify_claim(_claim(ClaimType.OBSERVED_FACT, "model_score", "model_score:1"))
     assert downgraded.verified is False
+    assert downgraded.reasons, "a downgrade must record why it was downgraded"
     assert not any("resolution was NOT checked" in reason for reason in downgraded.reasons)
