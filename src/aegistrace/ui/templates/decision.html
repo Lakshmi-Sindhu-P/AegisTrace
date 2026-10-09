@@ -24,6 +24,134 @@
   {% endif %}
   <p><a href="/findings">Return to the findings tray</a>.</p>
 </section>
+{% elif store_error %}
+<section class="decision-result" role="alert">
+  <div class="section-heading">
+    <h2>Human decision — {% if recorded %}recorded, but not confirmed{% else %}not recorded{% endif %}</h2>
+    <p class="section-sub">Read this verbatim: the instrument is telling you exactly what it knows.</p>
+  </div>
+  <div class="panel result-not-saved">
+    <div class="panel-kicker">{% if recorded %}Appended, then unreadable{% else %}Nothing was written{% endif %}</div>
+    <p class="mono error-text">{{ store_error }}</p>
+  </div>
+  {% if recorded %}
+  <p>
+    The review below was accepted by the store, but the history could not be read back, so this
+    instrument <strong>cannot show you the durable state</strong> and cannot confirm the record's
+    shape. Treat the decision as recorded and unverified until you re-open the store directly.
+  </p>
+  {% endif %}
+  <dl class="review-summary">
+    <div class="review-summary-item">
+      <dt>Spine id</dt>
+      <dd><code class="mono wrap">{{ submitted_spine_id }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Decision (as submitted)</dt>
+      <dd><span class="value-tier">{{ submitted_decision }}</span></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Notes (as submitted)</dt>
+      <dd class="notes-echo">{{ submitted_notes | default("(none)") }}</dd>
+    </div>
+  </dl>
+  <ul class="bundle-actions">
+    <li><a href="/decision?spine_id={{ record.spine_id }}">Return to the decision form</a></li>
+    <li><a href="/findings">Findings tray</a></li>
+  </ul>
+</section>
+{% elif recorded %}
+<section class="decision-result" role="status">
+  <div class="section-heading">
+    <h2>Human decision — recorded</h2>
+    <p class="section-sub">
+      This is the <strong>durable</strong> state, re-read from the store and revalidated by the
+      review schema. It is not an echo of the form.
+    </p>
+  </div>
+  <div class="panel result-saved">
+    <div class="panel-kicker">Appended to the review history</div>
+    <p>
+      A <code>HumanReview</code> was appended. Nothing was overwritten: an append-only store can
+      only add, and the history below is the whole chain for this subject.
+    </p>
+  </div>
+  <dl class="review-summary">
+    <div class="review-summary-item">
+      <dt>Review id (content-derived)</dt>
+      <dd><code class="mono wrap">{{ recorded_review.review_id }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Subject triage id</dt>
+      <dd><code class="mono wrap">{{ recorded_review.subject_triage_id }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Assessor role reviewed</dt>
+      <dd><span class="value-tier">{{ recorded_review.subject_role }}</span></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Reviewer reference</dt>
+      <dd>{{ recorded_review.reviewer_ref }}</dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Tier conducted</dt>
+      <dd><span class="value-tier">{{ recorded_review.tier }}</span></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Decision</dt>
+      <dd><span class="value-tier">{{ recorded_review.decision }}</span></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Final disposition</dt>
+      <dd>{{ recorded_review.final_disposition }}</dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Escalation state</dt>
+      <dd><span class="value-tier">{{ recorded_review.escalation_state }}</span></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Reviewed at (recording time, UTC)</dt>
+      <dd><code class="mono">{{ recorded_review.reviewed_at }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Supersedes</dt>
+      <dd>
+        {% if recorded_review.supersedes_review_id %}
+        <code class="mono wrap">{{ recorded_review.supersedes_review_id }}</code>
+        {% else %}<span class="muted">nothing — this review supersedes no earlier one</span>{% endif %}
+      </dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Notes (recorded verbatim)</dt>
+      <dd class="notes-echo">{{ recorded_review.notes }}</dd>
+    </div>
+  </dl>
+
+  <div class="panel append-note">
+    <div class="panel-kicker">History for this subject — {{ recorded_history.reviews | length }} review(s)</div>
+    <ol class="review-chain">
+      {% for review in recorded_history.reviews %}
+      <li>
+        <span class="value-tier">{{ review.decision }}</span>
+        <code class="mono">{{ review.review_id }}</code>
+        <span class="muted">by {{ review.reviewer_ref }} at {{ review.reviewed_at }}</span>
+        {% if review.supersedes_review_id %}
+        <span class="muted">supersedes <code class="mono">{{ review.supersedes_review_id }}</code></span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    <p>
+      The order above is the chain. The last entry is the current decision; earlier entries are kept
+      exactly as they were recorded and are never rewritten.
+    </p>
+  </div>
+
+  <ul class="bundle-actions">
+    <li><a href="/decision?spine_id={{ record.spine_id }}">Record another decision</a></li>
+    <li><a href="/findings">Findings tray</a></li>
+  </ul>
+</section>
 {% elif submitted %}
 <section class="decision-result" role="alert">
   <div class="section-heading">
@@ -31,13 +159,13 @@
     <p class="section-sub">Read this verbatim: your submission was received but <strong>was not saved</strong>.</p>
   </div>
   <div class="panel result-not-saved">
-    <div class="panel-kicker">No durable store to append to</div>
+    <div class="panel-kicker">No durable store configured</div>
     <p>
-      The write path of this instrument is deliberately not wired yet: appending a
-      <code>HumanReview</code> requires a durable, linear, append-only review history, and no
-      persistence layer exists. A form that silently discarded your decision would be the worst
+      This instance was started without a review store, so there is nowhere durable to append a
+      <code>HumanReview</code>. A form that silently discarded your decision would be the worst
       possible failure for an evidence-custody tool, so this page acknowledges what you submitted
-      and states plainly that it was <strong>not recorded</strong>.
+      and states plainly that it was <strong>not recorded</strong>. To record decisions, start the
+      instrument with a store path.
     </p>
   </div>
   <dl class="review-summary">
@@ -98,6 +226,80 @@
   <form class="decision-form" method="post" action="/decision" aria-describedby="form-help">
     <input type="hidden" name="spine_id" value="{{ record.spine_id }}">
 
+    {% if can_record %}
+    <div class="field">
+      <label for="reviewer_ref">Reviewer reference <span class="required">(required)</span></label>
+      <p class="field-help" id="reviewer_ref-help">
+        Who is recording this decision. A stable local reference, not a name you would not want
+        stored.
+      </p>
+      <input type="text" id="reviewer_ref" name="reviewer_ref" class="mono" required
+             aria-describedby="reviewer_ref-help" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="subject_role">Assessor role being reviewed <span class="required">(required)</span></label>
+      <p class="field-help" id="subject_role-help">
+        Which of the two mutually blind roles produced the assessment you are deciding on.
+      </p>
+      <select id="subject_role" name="subject_role" class="mono" required
+              aria-describedby="subject_role-help">
+        <option value="triage_analyst">triage_analyst</option>
+        <option value="expert_adjudicator">expert_adjudicator</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="tier">Tier you actually conducted <span class="required">(required)</span></label>
+      <p class="field-help" id="tier-help">
+        The level of scrutiny <em>you really applied</em> — not the tier this case requires. The
+        requirement lives on the subject and is reconciled against this; an under-reviewed case is
+        recorded as a discrepancy rather than silently accepted. This instrument performs no tier
+        classification of its own.
+      </p>
+      <select id="tier" name="tier" class="mono" required aria-describedby="tier-help">
+        <option value="tier_a_machine_check">tier_a_machine_check</option>
+        <option value="tier_b_guided_junior">tier_b_guided_junior</option>
+        <option value="tier_c_expert_judgment">tier_c_expert_judgment</option>
+        <option value="tier_d_insufficient_evidence">tier_d_insufficient_evidence</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="final_disposition">Final disposition <span class="required">(required)</span></label>
+      <p class="field-help" id="final_disposition-help">
+        The outcome you are putting on the record, in your own words.
+      </p>
+      <input type="text" id="final_disposition" name="final_disposition" required
+             aria-describedby="final_disposition-help" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="escalation_state">Escalation state <span class="required">(required)</span></label>
+      <p class="field-help" id="escalation_state-help">
+        Must be non-<code>none</code> exactly when the decision is <code>escalate</code>; the schema
+        refuses any other combination.
+      </p>
+      <select id="escalation_state" name="escalation_state" class="mono" required
+              aria-describedby="escalation_state-help">
+        <option value="none">none</option>
+        <option value="pending">pending</option>
+        <option value="escalated">escalated</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="supersedes_review_id">Supersedes review id <span class="optional">(required for <code>revise</code>)</span></label>
+      <p class="field-help" id="supersedes_review_id-help">
+        Required when you choose <code>revise</code>: the review id you are correcting. A correction
+        is a new entry pointing back at the one it supersedes — never an edit. It must be the most
+        recent review in the chain.
+      </p>
+      <input type="text" id="supersedes_review_id" name="supersedes_review_id" class="mono"
+             aria-describedby="supersedes_review_id-help" autocomplete="off">
+    </div>
+    {% endif %}
+
     <div class="field">
       <label for="decision">Decision</label>
       <p class="field-help" id="decision-help">Choose one disposition for this bundle.</p>
@@ -117,12 +319,20 @@
     </div>
 
     <p id="form-help" class="form-help">
-      Submitting is <strong>append-only</strong>: it records a new decision, never edits a past one.
-      A correction is added as a new entry that supersedes the last, never an overwrite.
+      {% if can_record %}
+      Submitting <strong>appends</strong> a new decision to this subject's review history. It never
+      edits or deletes. {{ reviewed_at_note }}
+      {% else %}
+      This instance has <strong>no review store configured</strong>, so submitting cannot save
+      anything. The form is shown so the write path is visible rather than implied, and a submission
+      returns an explicit &ldquo;not recorded&rdquo; statement.
+      {% endif %}
     </p>
 
     <div class="form-actions">
-      <button type="submit" class="btn-cta">Submit human decision</button>
+      <button type="submit" class="btn-cta">
+        {% if can_record %}Record human decision{% else %}Submit human decision{% endif %}
+      </button>
     </div>
   </form>
 
@@ -133,6 +343,12 @@
       supersede the most recent one, duplicate identifiers are rejected, and nothing is overwritten.
       This form can only ever add to that chain; it can never edit or delete.
     </p>
+    {% if not can_record %}
+    <p>
+      Additionally, this instance is running <strong>without</strong> a review store, so the chain
+      above is not reachable from here at all and no decision can be persisted.
+    </p>
+    {% endif %}
   </div>
 </section>
 {% endif %}

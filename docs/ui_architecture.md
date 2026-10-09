@@ -1,7 +1,9 @@
 # AegisTrace UI — Investigation Bench Architecture
 
 **Document status: APPROVED INTENT / DESIGN.**
-**Implementation status: PARTIAL — see "Implementation status" below.**
+**Implementation status: PARTIAL — the shell, the five views and the review-append write path are
+implemented; the evidence read layer is still one JSON artifact and the comparison view has no real
+data. See "Implementation status" below.**
 
 This document records the approved architectural and interaction direction for the AegisTrace
 local user interface. It names the navigation model, the major views, the component boundaries, and
@@ -21,17 +23,19 @@ writes and renders it honestly, including the states where it has nothing to sho
 | The five views, the navigation and the loopback-only bind | **CURRENT / IMPLEMENTED** |
 | Static HTML/CSS, no JavaScript, no external asset | **CURRENT / IMPLEMENTED** |
 | Synthetic marking, artifact-unavailable state, "AI assessment not available" state | **CURRENT / IMPLEMENTED** |
-| A durable persistence/read layer (`storage/`) | **PLANNED, NOT IMPLEMENTED** — the UI reads a file |
-| The review-append write path | **PLANNED, NOT IMPLEMENTED** — the form refuses, see below |
+| A durable persistence layer (`storage/`) | **CURRENT / IMPLEMENTED** for human-review history (append-only DuckDB store, optional `storage` extra) |
+| The review-append write path | **CURRENT / IMPLEMENTED** — `POST /decision` appends a `HumanReview` when a store path is configured, and refuses visibly when it is not |
 | Real (non-synthetic) assessment data for the comparison view | **BLOCKED_HUMAN** (provider freeze) |
 
-Two things the UI deliberately does **not** do yet, both stated on the pages themselves rather than
+Two things the UI deliberately does **not** do, both stated on the pages themselves rather than
 left implicit:
 
-1. **It does not save a human decision.** Appending a `HumanReview` needs a durable store to append
-   to, and none exists. `POST /decision` therefore returns an explicit "NOT recorded" page. A form
-   that silently discarded a human decision would be the worst failure an evidence-custody tool
-   could have, so it refuses visibly instead.
+1. **It does not save a human decision unless a store is configured.** With a store path, a
+   submission is appended durably and the page shows the record re-read from the store. Without one,
+   `POST /decision` returns an explicit "NOT recorded" page. A form that silently discarded a human
+   decision would be the worst failure an evidence-custody tool could have, so it refuses visibly
+   instead. The failure page also distinguishes "nothing was written" from "written but could not be
+   read back", because collapsing those two would itself be a false statement.
 2. **It never invents an assessment pair.** The comparison view always reports "AI assessment not
    available", because the artifact it reads carries no assessments and no real (non-synthetic) run
    exists.
@@ -75,7 +79,7 @@ dependency; it is introduced only at implementation time.
 | Constraint | Requirement | Repository origin / enforcement |
 |---|---|---|
 | Localhost-only | Binds `127.0.0.1`; no external requests, no telemetry, no CDN; all assets ship local. | Approved in `docs/ui_design_directions.md` "Shared commitments". |
-| Read-only over evidence | The UI never writes detection data, never re-ranks, never auto-acts. The single write path is appending a `HumanReview`, which is append-only. | Enforced by the `ReviewHistory` schema (`src/aegistrace/schemas/review.py`, `validate_chain_is_linear`, `validate_subjects_match`) and by `SpineRecord.require_history_is_open` (`src/aegistrace/spine.py`). |
+| Read-only over evidence | The UI never writes detection data, never re-ranks, never auto-acts. The single write path is appending a `HumanReview`, which is append-only. | Enforced by the `ReviewHistory` schema (`src/aegistrace/schemas/review.py`, `validate_chain_is_linear`, `validate_subjects_match`), by `SpineRecord.require_history_is_open` (`src/aegistrace/spine.py`), and by the append-only `ReviewStore` (`src/aegistrace/storage/reviews.py`), which has no mutation code path. |
 | Honest certainty | Nothing renders as more certain than it is. Abstention, missing context and limitations are displayed as content, never hidden in a tooltip. Uncertainty is shown as a band/interval, never a bare confidence percentage. Every score carries its model name because scores are not comparable across models. | `TriageCategory.INSUFFICIENT_EVIDENCE`, `EvidenceBundle.missing_context`/`limitations`, `TriageAssessment.confidence_statement` and `uncertainties`, `ScoreReference.model_name`. |
 | Accessible by default | WCAG 2.2 AA contrast floor; visible focus states; full keyboard operation; semantic HTML; no information conveyed by animation alone. | Approved in `docs/ui_design_directions.md` "Shared commitments". |
 | Colour never alone | Severity and disagreement always carry text and/or shape in addition to colour. | Approved in `docs/ui_design_directions.md` "Shared commitments". |
@@ -85,7 +89,7 @@ dependency; it is introduced only at implementation time.
 ### The single write path, stated exactly
 
 The only state-changing operation the UI performs is appending a `HumanReview` to a review history.
-That operation is **append-only** and is enforced by two schemas:
+That operation is **append-only** and is enforced at three levels:
 
 1. `ReviewHistory` (`src/aegistrace/schemas/review.py`) enforces a single linear chain: every review
    shares the subject's `subject_triage_id`; a later review must supersede the most recent review;
@@ -94,7 +98,18 @@ That operation is **append-only** and is enforced by two schemas:
 2. `SpineRecord.require_history_is_open` (`src/aegistrace/spine.py`) guarantees a spine record
    always reaches a human with an **empty** review history awaiting review — it raises if a record
    carries any review. This is the schema-level guarantee that no autonomous component (including
-   any UI the spine would not pass through) can write a review.
+   any UI the spine would not pass through) can write a review. Because a spine record's embedded
+   history is therefore *always* empty, reviews are stored in the separate store below rather than
+   written back into the spine artifact.
+3. `ReviewStore` (`src/aegistrace/storage/reviews.py`) is where a review actually goes. It issues
+   only `CREATE`, `INSERT` and `SELECT`, so no mutation code path exists; `review_id` is the primary
+   key, so a duplicate is refused by the database as well as by the schema; and every read
+   reconstructs a `ReviewHistory`, so a hand-edited database fails loudly on read instead of
+   presenting a forged lineage as authoritative. It also journals each subject's expected head and
+   count at every append, so a *truncated* chain — which is shorter but still internally valid — is
+   detected. The honest limit: DuckDB does not make a table immutable, so a user with the `duckdb`
+   CLI can still issue `UPDATE`/`DELETE`; that is **detected**, not prevented. Preventing it is what
+   PostgreSQL with restricted roles would buy, and PostgreSQL stays deferred.
 
 The append itself is executed through `append_review` in `src/aegistrace/review/history.py`, which
 re-validates the chain before producing the new `ReviewHistory`. The repository's central invariant —
@@ -206,7 +221,8 @@ the spine record.
 
 Each view maps to the record type(s) it consumes. "Exists today" means the schema/module is
 implemented in the repository now; it does not mean the UI reads a durable store for it, because the
-persistence layer is still planned (Section 7).
+UI reads one JSON artifact for evidence and only the human-review history has a durable store
+(Section 7).
 
 | View | Source of truth (schema type) | Module | Exists today? |
 |---|---|---|---|
@@ -214,7 +230,7 @@ persistence layer is still planned (Section 7).
 | Provenance spine | `EvidenceBundle`, `EventSummary`, `DetectionEvidence`, `ScoreReference`, `EvidenceReference`, `Claim`, `ClaimVerification`, `SecurityEvent` | `src/aegistrace/schemas/findings.py`, `src/aegistrace/schemas/events.py`, `src/aegistrace/detection/evidence.py`, `src/aegistrace/verification/claims.py` | Yes for the schemas and claim verification module. A durable event store is **not** implemented (see 7). |
 | AI comparison | `TriageAssessment`, `TriageComparison`, `AssessorRole`, `DisagreementReason`, `ProviderMetadata`, `RawResponseReference` | `src/aegistrace/schemas/triage.py`, `src/aegistrace/triage/agreement.py` (agreement engine), `src/aegistrace/spine.py` | Schemas/engine: Yes. Real non-synthetic assessment data: **not yet** (firewall — see 7). |
 | Review requirements | `TierAssignment`, `ReviewTier`, `MachineCheck` | `src/aegistrace/schemas/review.py`, `src/aegistrace/review/tiers.py` | Yes (schema + `classify_tier`). |
-| Human decision | `HumanReview`, `ReviewHistory` | `src/aegistrace/schemas/review.py`, `src/aegistrace/review/history.py` | Yes (schema + append-only helper). |
+| Human decision | `HumanReview`, `ReviewHistory` | `src/aegistrace/schemas/review.py`, `src/aegistrace/review/history.py`, `src/aegistrace/storage/reviews.py` | Yes — schema, append-only helper, **and** a durable append-only store (`ReviewStore`). |
 | Top-level page/run identity | `SpineRecord` (fields: `spine_id`, `snapshot_digest`, `triage_run`, `comparison`, `tier`, `review_history`, `synthetic`) | `src/aegistrace/spine.py` | Yes (schema + `run_spine`). |
 | Egress/boundary truth | `ProviderDescriptor`, `ProviderResponse.synthetic`, freeze artifact | `src/aegistrace/triage/provider.py`, `configs/triage_provider_freeze.json` | Yes. Freeze status is `BLOCKED_HUMAN` and assessor independence is `NOT ESTABLISHED`. |
 
@@ -228,12 +244,12 @@ records; binding is `127.0.0.1` only.
 The UI would want the following, but they do not exist in the repository today. The document names
 them so implementation never fabricates them:
 
-1. **A durable persistence/read layer.** The `storage/` package is still absent and there is no
-   persistent application database (PostgreSQL is deferred; Parquet/DuckDB are approved for later
-   milestones). The UI therefore reads a **JSON artifact the pipeline already wrote**, via
-   `src/aegistrace/ui/artifacts.py`, rather than a store. A store-backed read layer remains
-   `PLANNED, NOT IMPLEMENTED`. The `ui/` package and the FastAPI dependency now exist as an optional
-   `ui` extra.
+1. **A durable evidence read layer.** The human-review history now has a durable store
+   (`src/aegistrace/storage/reviews.py`, append-only, DuckDB, optional `storage` extra), but there is
+   still no durable store for *evidence*: the UI reads a **JSON artifact the pipeline already wrote**,
+   via `src/aegistrace/ui/artifacts.py`. A store-backed evidence read layer remains
+   `PLANNED, NOT IMPLEMENTED`, and PostgreSQL stays deferred. The `ui/` package, the FastAPI
+   dependency and the `storage/` package all exist as optional extras.
 2. **Real (non-synthetic) independent assessment data.** `configs/triage_provider_freeze.json` is
    `BLOCKED_HUMAN`; assessor independence is `NOT ESTABLISHED`; there is no LLM client or credential
    path, and no network-capable import exists in the provider boundary
@@ -296,8 +312,8 @@ and not a new governance rule.
 | The five views, navigation, component boundaries in Sections 3–5 | **CURRENT / IMPLEMENTED** |
 | FastAPI / static-HTML stack | **CURRENT / IMPLEMENTED**, as an optional `ui` extra so the library never needs a server |
 | Loopback-only bind (`127.0.0.1`) | **CURRENT / IMPLEMENTED and VERIFIED** — no `--host` flag exists, and a live run served loopback while refusing the LAN address |
-| Durable persistence layer (`storage/`) | **PLANNED, NOT IMPLEMENTED** — the UI reads a JSON file |
-| The review-append write path | **PLANNED, NOT IMPLEMENTED** — `POST /decision` returns an explicit "NOT recorded" page |
+| Durable persistence layer (`storage/`) | **CURRENT / IMPLEMENTED** for human-review history (append-only DuckDB store, optional `storage` extra). A durable store for **evidence** remains **PLANNED, NOT IMPLEMENTED** — the UI reads a JSON file |
+| The review-append write path | **CURRENT / IMPLEMENTED** — `POST /decision` appends a `HumanReview` when a store path is configured, and returns an explicit "NOT recorded" page when it is not |
 | Underlying schemas the views read | **CURRENT / IMPLEMENTED** (per `MEMORY.md`) |
 | Provider boundary, egress refusal, `synthetic` enforcement | **CURRENT / IMPLEMENTED and VALIDATED** (per `MEMORY.md` and `src/aegistrace/triage/provider.py`) |
 | Real non-synthetic triage run | **BLOCKED_HUMAN** / **NOT ESTABLISHED** (freeze artifact), so **PLANNED, NOT IMPLEMENTED** |
@@ -308,8 +324,9 @@ and not a new governance rule.
 
 The following could not be established from the repository and are stated as such rather than
 guessed:
-- The exact data source a UI would read from (no durable store exists); how records are made
-  available to a UI is not determined.
+- The exact durable data source a UI would read **evidence** from; the human-review store now exists
+  (`src/aegistrace/storage/reviews.py`), but no durable evidence store does, so how evidence records
+  become available to the UI beyond the one JSON artifact is still not determined.
 - A numeric confidence measure to band as uncertainty (the schemas carry text, not a numeric
   confidence); the band requirement applies to scores, not to an invented confidence number.
 - Whether `Claim`/`ClaimVerification` artifacts are produced for the evidence spine on the same

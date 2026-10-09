@@ -13,6 +13,18 @@ Usage:
 
     .venv/bin/python scripts/run_local_ui.py \
         --artifact data/evaluation/triage_spine/offline_spine_demo.json
+
+To let the instrument record human decisions, pass a store path as well. Its parent directory must
+already exist, for the same reason the artifact must: the store refuses to start an empty database
+at a mistyped path, so "no reviews yet" can never be confused with "you pointed me at the wrong
+place".
+
+    .venv/bin/python scripts/run_local_ui.py \
+        --artifact data/evaluation/triage_spine/offline_spine_demo.json \
+        --store data/reviews/reviews.duckdb
+
+Without ``--store`` the decision form still renders, but it cannot persist anything and says so
+explicitly on submission rather than appearing to save.
 """
 
 from __future__ import annotations
@@ -37,6 +49,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Spine summary to read. Must already exist; the UI never produces it.",
     )
     parser.add_argument("--port", type=int, default=8765, help="Loopback port to listen on.")
+    parser.add_argument(
+        "--store",
+        default=None,
+        help=(
+            "DuckDB review store to append human decisions to. Its parent directory must already "
+            "exist. Without this flag the decision form cannot record anything, and says so."
+        ),
+    )
     return parser
 
 
@@ -62,6 +82,21 @@ def main() -> int:
         )
         return 2
 
+    # Resolve the store before importing uvicorn, so a mistyped path is refused before a socket is
+    # bound rather than surfacing as a failure page on first submission.
+    store: Path | None = None
+    if args.store:
+        store = Path(args.store)
+        if not store.is_absolute():
+            store = REPO_ROOT / store
+        if not store.parent.is_dir():
+            print(
+                f"run_local_ui: review store directory does not exist: {store.parent}\n"
+                f"  create it first; refusing to start an empty store at a mistyped path.",
+                file=sys.stderr,
+            )
+            return 2
+
     try:
         import uvicorn
     except ModuleNotFoundError:
@@ -74,9 +109,15 @@ def main() -> int:
 
     from aegistrace.ui.app import create_app
 
-    app = create_app(artifact_path=artifact)
+    app = create_app(artifact_path=artifact, store_path=store)
     print(f"run_local_ui: serving http://{LOOPBACK}:{args.port}/ (loopback only)")
     print(f"run_local_ui: reading {artifact}")
+    if store is None:
+        print(
+            "run_local_ui: no --store given; the decision form cannot record and will say so"
+        )
+    else:
+        print(f"run_local_ui: recording human decisions to {store}")
     uvicorn.run(app, host=LOOPBACK, port=args.port, log_level="warning")
     return 0
 

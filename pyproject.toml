@@ -28,6 +28,9 @@ dependencies = [
 #: server: detection, triage, tiering and review all work headless, and a reader who only wants the
 #: library should not install a server to get it. `pip install -e '.[ui]'`.
 [project.optional-dependencies]
+storage = [
+  "duckdb>=1.1,<2",
+]
 ui = [
   "fastapi>=0.115,<1",
   "jinja2>=3.1,<4",

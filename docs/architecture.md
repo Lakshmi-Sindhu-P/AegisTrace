@@ -248,9 +248,20 @@ or rejected. Fusion and architecture choices are selected only on training/valid
 
 - Raw third-party data stays outside Git under ignored local storage.
 - Normalized immutable event partitions and feature tables use Parquet.
-- DuckDB provides local queries and relational views over Parquet.
+- DuckDB provides local queries and relational views over Parquet. **Partially implemented:** DuckDB
+  currently backs only the human-review store (`src/aegistrace/storage/reviews.py`), not yet
+  relational views over the Parquet artifacts, which are still read directly with PyArrow.
 - Small manifests, configs, prompts, and evaluation cases are versioned in Git when licensing and sensitivity permit.
-- Human review can begin in DuckDB for a single local user. PostgreSQL is considered only when concurrency or durable application workflows require it.
+- Human review begins in DuckDB for a single local user, as approved.
+  `src/aegistrace/storage/reviews.py` implements that as an append-only store: it issues only
+  `CREATE`, `INSERT` and `SELECT`, so no mutation code path exists, and every read reconstructs a
+  `ReviewHistory` so a hand-edited database fails loudly instead of presenting a forged lineage as
+  authoritative. DuckDB does not make a table immutable — a user with the `duckdb` CLI can still
+  issue `UPDATE`/`DELETE`, which is *detected* on read rather than prevented. Preventing it is what
+  PostgreSQL with restricted roles would buy, and PostgreSQL remains deferred until concurrency or
+  durable application workflows require it.
+- The store is declared as an optional `storage` extra (`pyproject.toml`), so the research library
+  never depends on a database engine.
 
 ## Technology Choices
 
@@ -259,17 +270,21 @@ or rejected. Fusion and architecture choices are selected only on training/valid
 | Runtime | Python 3.12 | Implemented | Mature data/ML compatibility and long support window |
 | Environment/package tool | `uv` with `pyproject.toml` and lockfile | Implemented | Reproducible setup with one project manifest |
 | Validation | Pydantic | Implemented for event/provenance/manifest contracts | Typed, versionable boundary models |
-| Data frames/storage | PyArrow/Parquet now; Pandas and DuckDB later | PyArrow implemented in Phase 2; others planned | Typed local batch artifacts first, analysis/query tools when used |
+| Data frames/storage | PyArrow/Parquet for data; DuckDB for the human-review store; Pandas still later | PyArrow implemented in Phase 2; DuckDB implemented as an optional extra; Pandas planned | Typed local batch artifacts first, then a relational store only where a real durable workflow needed one |
 | ML | scikit-learn | Implemented for Phase 3 baselines | Logistic Regression and Random Forest with fixed seed and scenario-held-out evaluation |
 | Model-family benchmark | scikit-learn first | Approved design | Keep the shortlist small; add a specialist only for a validated hypothesis and complementary error evidence |
 | Anomaly detection | Deferred Isolation Forest experiment | Approved design | Treat output as anomaly prioritization, never automatic maliciousness |
 | Testing | pytest, Ruff, mypy | Implemented | Runtime contracts, style, and static type checks |
 | Configuration | TOML plus explicit environment overrides | Implemented | Avoid an extra YAML or dotenv dependency and keep secrets out of files |
 | Logging | Python logging with redacting JSON records | Implemented | Machine-readable context with minimal dependencies |
-| UI | Streamlit | Deferred | Suitable for a single-user local review prototype |
-| API | FastAPI | Deferred | Add only for a real external consumer |
+| UI | FastAPI plus static HTML/CSS, loopback only, no JavaScript | Implemented as an optional `ui` extra (partial) | Streamlit was the original deferral, but a purpose-built local instrument keeps full control of honest rendering: visible uncertainty, no CDN, no telemetry, and no scripting surface. See `docs/ui_architecture.md`. |
+| API | FastAPI as a local application shell, not a network service | Implemented as the optional `ui` extra; no external consumer exists | The framework is no longer deferred (partial reversal of the 2026-09-19 deferral), but it is bound to `127.0.0.1` and is not an API for third parties |
 
-## Planned Repository Boundaries
+## Repository Boundaries
+
+This was written as the *planned* boundary set. Most of it now exists; the per-directory comments
+below state which parts are implemented and which are still planned, and `MEMORY.md` carries the
+authoritative repo-shape block.
 
 ```text
 src/aegistrace/
@@ -281,11 +296,14 @@ src/aegistrace/
     triage/        # findings, evidence bundles, LLM interface, validators
     evaluation/    # split policies, metrics, experiment records
     provenance/    # manifests and lineage utilities
-    storage/       # Parquet/DuckDB repositories
-    ui/            # deferred Streamlit entry point
+    storage/       # append-only human-review store (DuckDB); Parquet repositories still planned
+    ui/            # local loopback-only investigation instrument (FastAPI + static HTML/CSS)
 ```
 
-`api/` will not be created until an API consumer exists. Empty folders will not be committed merely to match a diagram.
+`api/` will not be created until an API consumer exists. Empty folders will not be committed merely
+to match a diagram. `storage/` and `ui/` are optional extras: the research library must never import
+either, and a test asserts that `fastapi`, `uvicorn` and `duckdb` are absent from the core
+`dependencies`.
 
 ## Failure Behavior
 

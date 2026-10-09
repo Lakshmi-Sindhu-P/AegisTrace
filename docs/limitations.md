@@ -1,14 +1,15 @@
 # Limitations
 
-**Status:** Updated after the Phase 3 validation-only detector-improvement and hardening work plus
-the 2026-09-22 architecture amendment. The amended multi-model triage architecture is approved
-design, not implemented; no production or broad generalization claim is supported.
+**Status:** Updated after the Phase 3 validation-only detector-improvement and hardening work, the
+2026-09-22 architecture amendment, and the local-UI / human-review-store implementation. The amended
+multi-model triage architecture is approved design and is only partially implemented; no production
+or broad generalization claim is supported, and no real LLM assessment run has been made.
 
 ## Current Limitations
 
 - The repository contains a tested package foundation, an IoT-23 parser validated against a safe synthetic Zeek fixture, and a CTU-13 adapter validated against five genuine labeled text-flow scenarios used across the baseline and validation-only study.
 - No official IoT-23 data has been downloaded or validated; the scenario page states authorization is required.
-- Canonical event/provenance and dataset-manifest schemas plus two source adapters and typed Parquet/quality artifacts are implemented. Detection rules and supervised model prototypes exist; findings, prompts, UI, and review workflow are not.
+- Canonical event/provenance and dataset-manifest schemas plus two source adapters and typed Parquet/quality artifacts are implemented. Detection rules and supervised model prototypes exist. Findings and the deterministic finding aggregator exist. The multi-model triage layer exists as schemas, a provider boundary and a deterministic agreement engine, but its only assessed artifact is an offline stand-in: no real LLM assessment run has been made, so nothing about assessment quality is known. The local UI exists as an optional extra and is **partial** — it reads one pipeline artifact, presents it honestly, and refuses to fabricate what it does not have. The review workflow exists as schemas, history helpers and a durable append-only DuckDB store, but no reviewer has used it on real data.
 - The current validation-only study uses Scenarios 11 and 47 for training and Scenarios 5 and 53 for validation (1,121,466 accepted rows total, with seven rejected rows in Scenario 47). It remains a small, source-specific cross-scenario result, not real-world generalization.
 - CTU-13 timestamps do not carry an explicit timezone in the flow rows. The adapter records and applies the scenario's documented `Europe/Prague` context before converting to UTC; this assumption should be independently rechecked before comparative time analysis.
 - CTU-13 labels are source annotations. The adapter intentionally maps `Background` and `To-*` labels to unknown, so coarse label counts are a conservative policy rather than a claim that those flows are benign.
@@ -22,10 +23,13 @@ design, not implemented; no production or broad generalization claim is supporte
 - Calibration was assessed with a training-only sigmoid wrapper and deferred because the Brier score worsened and the ECE improvement was small. Raw model scores must not be described as calibrated real-world probabilities.
 - Rules emit detector signals with observed values and thresholds; a signal is not proof of compromise, an incident, or malicious intent.
 - No accuracy, grounding, hallucination, latency, cost, or analyst-effort result exists.
-- The amended architecture does not yet have a model-family benchmark, disagreement analysis,
-  anomaly specialist, temporal specialist, fusion model, deterministic finding aggregator,
-  verification layer, reference retriever, dual-LLM comparison, recommendation layer, or reviewer
-  training mode. These are planned capabilities, not current system behavior.
+- The amended architecture now **has** a model-family benchmark (the cross-scenario RF/HGB/Linear-SVM
+  stability pass), a deterministic finding aggregator, a claim-verification layer, disagreement
+  analysis (the deterministic agreement engine over two mutually blind roles), and the dual-LLM
+  comparison *structure*. It does **not** have an anomaly specialist, a temporal specialist, a fusion
+  model, a reference retriever, a recommendation layer, or a reviewer training mode. The comparison
+  structure has never been exercised with two real assessments, so "dual-LLM comparison" describes a
+  validated schema and agreement engine, not a demonstrated capability.
 - The current datasets justify a small tabular benchmark but not temporal neural models, deep
   representation learning, large gradient-boosting dependency stacks, or semi-supervised claims.
   Adding algorithms for breadth would increase selection bias and operational complexity without

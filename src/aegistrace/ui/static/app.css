@@ -685,6 +685,39 @@ textarea {
   border-left-color: var(--faint);
 }
 
+/* A recorded decision is the one success state this instrument can honestly show. The distinction
+   from .result-not-saved is carried by the kicker TEXT ("Appended to the review history" vs
+   "Nothing was written"), never by colour alone, so a greyscale printout still reads correctly.
+   Colour and a doubled rule are supplementary reinforcement. */
+.result-saved {
+  border-left-width: 8px;
+  border-left-style: double;
+  border-left-color: var(--pass-ink);
+  background: var(--pass-wash);
+}
+
+/* "(required)" is the text carrier; weight and ink only reinforce it. */
+.required {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* The append-only chain, rendered as an ordered list because the ORDER is the guarantee. */
+.review-chain {
+  margin: 0.6rem 0 0;
+  padding-left: 1.4rem;
+}
+
+.review-chain li {
+  margin-bottom: 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+.review-chain li::marker {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
 .simple-list {
   margin: 0.6rem 0 0;
   padding-left: 1.2rem;
