@@ -71,8 +71,11 @@ def alert_volume(
 ) -> dict[str, float | int | None]:
     """Report labeled confusion counts and alert workload at one threshold."""
 
-    if not 0 <= threshold <= 1:
-        raise ValueError("threshold must be between 0 and 1")
+    # The threshold range is checked by `compute_binary_metrics` below, which is called
+    # unconditionally and raises the identical ValueError. A duplicate check here produced the
+    # identical message from two places, which made the falsification test for THIS guard vacuous:
+    # deleting it left the test green because the delegated call raised instead. One guard, one
+    # place, and the test that names it now covers it.
     metrics: BinaryMetrics = compute_binary_metrics(
         labels,
         known_scores,

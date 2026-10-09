@@ -206,9 +206,25 @@ def test_clean_fixture_has_no_violations(tmp_path: Path) -> None:
     assert violations == []
 
 
-def test_render_is_idempotent() -> None:
+def test_render_is_deterministic_and_depends_on_ledger_content() -> None:
+    """Determinism is only meaningful alongside its falsifier.
+
+    `render(ledger) == render(ledger)` compares a value to itself and can never fail, so on its own
+    it reports success over a property it does not test. Pairing the stability claim with a mutated
+    ledger gives it teeth: a renderer that returned a constant would satisfy the first assertion and
+    fail the second.
+    """
+
     ledger = json.loads((REPO_ROOT / "docs/results_ledger.json").read_text(encoding="utf-8"))
-    assert render(ledger) == render(ledger)
+
+    # Stable across an independent re-parse of the same content.
+    reparsed = json.loads(json.dumps(ledger))
+    assert render(ledger) == render(reparsed)
+
+    # The falsifier: changing ledger content must change the rendered document.
+    mutated = json.loads(json.dumps(ledger))
+    mutated["claims"][0]["status"] = "a-status-that-is-not-in-the-ledger"
+    assert render(mutated) != render(ledger), "render must depend on ledger content"
 
 
 def test_committed_results_md_is_in_sync_with_the_ledger() -> None:
@@ -250,13 +266,23 @@ def test_check_mode_fails_when_output_is_missing(tmp_path: Path) -> None:
     assert main([str(ledger_path), "--output", str(tmp_path / "absent.md"), "--check"]) == 1
 
 
-def test_render_writes_byte_identical_output_twice(tmp_path: Path) -> None:
+def test_render_output_is_written_verbatim(tmp_path: Path) -> None:
+    """The write path must contain exactly the renderer's UTF-8 output.
+
+    Comparing two files written from the same string is `x == x` and cannot fail. The real property
+    is that no encoding or newline translation happens between the renderer and the file, so the
+    bytes on disk are checked against the rendered text directly.
+    """
+
     ledger = json.loads((REPO_ROOT / "docs/results_ledger.json").read_text(encoding="utf-8"))
-    first = tmp_path / "first.md"
-    second = tmp_path / "second.md"
-    first.write_text(render(ledger), encoding="utf-8")
-    second.write_text(render(ledger), encoding="utf-8")
-    assert first.read_bytes() == second.read_bytes()
+    rendered = render(ledger)
+    out = tmp_path / "out.md"
+    out.write_text(rendered, encoding="utf-8")
+
+    assert out.read_bytes() == rendered.encode("utf-8")
+    # The falsifier: an empty or constant render would satisfy the encoding check above.
+    assert rendered.startswith("# AegisTrace results ledger")
+    assert len(rendered) > 200
 
 
 def test_summary_counts_by_status_and_type() -> None:

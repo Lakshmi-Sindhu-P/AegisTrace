@@ -200,10 +200,31 @@ def test_tier_a_refused_with_zero_assessments() -> None:
     assignment = classify_tier(bundle=bundle, comparison=comparison, assessments=())
 
     assert assignment.tier is not ReviewTier.A_MACHINE_CHECK
-    # The machine checks must also refuse to pass vacuously on an empty assessment set.
-    vacuous = {check.check_name for check in machine_checks(bundle, ()) if check.passed}
-    assert "all_assessments_admissible" not in vacuous
-    assert "citations_resolve_to_bundle_evidence" not in vacuous
+
+    # The machine checks must ALL refuse to pass vacuously on an empty assessment set. This
+    # previously pinned only two of the four by name, so a regression that made the other two pass
+    # on zero assessments would have gone unnoticed.
+    checks = machine_checks(bundle, ())
+    assert {check.check_name for check in checks} == {
+        "all_assessments_admissible",
+        "citations_resolve_to_bundle_evidence",
+        "assessors_saw_identical_input",
+        "bundle_states_its_own_gaps",
+    }, "the pinned set must cover every machine check, not just the two that were noticed"
+    passed = {check.check_name for check in checks if check.passed}
+    # Three of the four checks are scoped to the ASSESSMENTS, so none may pass on an empty set.
+    # `bundle_states_its_own_gaps` is scoped to the BUNDLE rather than to the assessors, so it
+    # legitimately passes here - which is precisely why a blanket "nothing may pass" assertion
+    # would be wrong, and why the old two-name pin failed to describe the real contract.
+    assessment_scoped = {
+        "all_assessments_admissible",
+        "citations_resolve_to_bundle_evidence",
+        "assessors_saw_identical_input",
+    }
+    assert passed & assessment_scoped == set(), (
+        f"no assessment-scoped machine check may pass on an empty set; passed: "
+        f"{passed & assessment_scoped}"
+    )
 
 
 def test_tier_a_refused_when_only_one_assessment() -> None:

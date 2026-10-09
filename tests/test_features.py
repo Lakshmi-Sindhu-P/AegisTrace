@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 from aegistrace.features.behavioral import (
@@ -62,10 +63,11 @@ def test_feature_parquet_has_explicit_metadata_columns(tmp_path: Path) -> None:
         "ground_truth_label",
         "feature_version",
     ]
-    assert (
-        table.schema.field("duration_missing").type
-        == pq.read_schema(output).field("duration_missing").type
-    )
+    # Both sides of this comparison used to be read from the SAME file, so it was `x == x` and
+    # could not fail: a parquet whose duration_missing column had the wrong type still passed.
+    # Pinning the expected type is what makes the metadata contract testable.
+    assert table.schema.field("duration_missing").type == pa.float64()
+    assert table.schema.field("event_id").type == pa.string()
 
 
 def test_feature_dataset_rejects_noncanonical_feature_order() -> None:

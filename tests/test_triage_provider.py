@@ -374,8 +374,10 @@ def test_stub_output_is_always_synthetic() -> None:
 
     assert response.synthetic is True
     assert response.response_digest == digest_text(response.raw_text)
-    assert provider.descriptor.model_id.startswith("stub-")
-    assert "stub" in provider.descriptor.model_family
+    # Two assertions used to sit here re-checking `provider.descriptor`, which is the very object
+    # this test constructs and passes in - they were `x == x` and held for any descriptor. The
+    # naming rule is a precondition on a descriptor the CALLER supplies, and it is tested by
+    # `test_stub_provider_rejects_a_descriptor_that_could_be_mistaken_for_a_model` below.
 
 
 def test_stub_provider_rejects_a_descriptor_that_could_be_mistaken_for_a_model() -> None:
