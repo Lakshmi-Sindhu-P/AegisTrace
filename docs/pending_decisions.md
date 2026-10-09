@@ -15,21 +15,38 @@ is B or C. Category A work is not listed here; it is simply done.
 
 ---
 
-## The decisions
+## Decided by the owner (2026-10-09)
+
+Three decisions were answered on 2026-10-09. They are recorded here so the answer is not re-asked,
+with a pointer to where the decision is implemented. The verbatim decisions live in the session
+record; the engineering consequences are in the commits and issue comments named below.
+
+| # | Question | Owner's answer | Implemented in |
+|---|---|---|---|
+| 30 | Does `HumanReview.tier` mean the tier **required** or the tier **conducted**? | **Conducted.** `TierAssignment` retains the tier required. Reconcile the two, report unmet requirements **explicitly**, and **do not assume a simple numerical ordering of tiers** (a D outcome is a different kind of result, not a higher one). Preserve review history; add regression tests. | Issue #30; `src/aegistrace/schemas/review.py`, `src/aegistrace/review/tiers.py` |
+| 37 | Should an ingest accepting **zero** records refuse? | **Refuse, with a non-zero exit code**, whether the source was empty or every row was rejected. Preserve diagnostics and rejection reasons. Distinguish this from a successful ingest followed by zero detections or filter matches. | Issue #37; commit `e2ba0e7` |
+| UI | Which visual direction for the local UI? | **Investigation Bench (C) as the primary shell**, with **Chain of Custody (A) as the persistent evidence/provenance system**, and **Two Witnesses (B) as a dedicated AI-assessment comparison view**. Workflow: findings → evidence inspection → AI-assessment comparison (when available) → review requirements → human decision. Document navigation, major views, component boundaries and data dependencies **before** implementation. | `docs/ui_architecture.md` (design); implementation `PLANNED, NOT IMPLEMENTED` |
+
+**The UI approval is scoped.** The owner approved the *architectural and interaction direction* — not
+new research claims, not altered governance contracts, and not fabricated functionality, confidence
+measures or operational capabilities. Nothing in the UI may present a synthetic (offline-stub)
+assessment as a real experimental result.
+
+---
+
+## Still waiting on the owner
 
 | # | Decision | Category | Recommendation | Detail lives in |
 |---|---|---|---|---|
 | 27 | Should the registry validator **reject** a command that omits a repair step? | C | **Approve**, but not the wording as filed — it is unimplementable. Use the checkable invariant instead: if the manifest records `artifact_repair`, the command must name a repair script. | Issue #27 (comment) |
-| 30 | What does `HumanReview.tier` mean — the tier **required** by the assignment, or the tier actually **conducted**? | B | **Conducted (b).** A record should state what happened, not what was asked for. This is **one** decision, not two: the entry point that would refuse a tier mismatch cannot be written until the field's meaning is fixed. | Issue #30 (comment) |
 | 32 | Who owns the 20-bundle triage sample — the corpus or the caller? | B | **Corpus (a).** The preregistration attributes the sample to the corpus, so the corpus should own it. This fixes the evaluation population, so it is pre-data and would be a protocol violation to change later. | Issue #32 |
 | 33 | Rename `TriageComparison.left`/`right`? | B | **Rename** to role-named fields. The convention is already documented in the schema; only the names still contradict it. | Issue #33 |
 | 34 | Make the kind/resolved distinction visible in the record? | B | **Both**: give `verify_claim` a resolution context, and split `verified` into `kind_admissible` + `resolution`. | Issue #34; `docs/identity_decision_register.md` |
-| 37 | Should an ingest accepting **zero** records refuse, or succeed with a recorded issue? | B | **Record an issue and exit non-zero under `--fail-on-rejects`**, consistent with the existing `rejected_rows` contract. | `docs/identity_decision_register.md` §Issue #37 |
-| UI | Which visual direction for the local UI? | B | **Direction B** (triage surface) built on **Direction A's** provenance spine; A alone is the fallback. | `docs/ui_design_directions.md` |
 
-**Three decisions were closed as "not genuinely required"** — #38, #40 and #42 — because the
-identity rule already governs them, or because the fix made the rule unnecessary. They are recorded
-in `docs/identity_decision_register.md` so the reasoning is not lost, but they need no answer.
+**Four decisions were closed as "not genuinely required"** — #38, #40, #42 and (from round 36) the
+former #37 recommendation — because the identity rule already governs them, or because the fix made
+the rule unnecessary. They are recorded in `docs/identity_decision_register.md` so the reasoning is
+not lost, but they need no answer.
 
 **Parts of the listed issues are already done.** Re-running each issue's own reproduction established
 that #30's proposed fixes 2 and 3 (decision/escalation coherence, and `review_id` matching its own
@@ -47,8 +64,6 @@ general. The substitute check is narrower, purely cross-file, and would have cau
 
 **#34 is partially fixed.** The record no longer overstates what was checked. What remains is making
 the distinction visible in the *schema* rather than in prose, which is the part that needs you.
-
-**#37 is the last of the ingestion-identity family.** #35, #36, #38, #39, #40, #41 and #42 are closed.
 
 **Nothing here blocks unrelated work.** Per the operating protocol, `READY` issues that are not
 waiting on a decision remain runnable, and the engineering work that does not touch these contracts
