@@ -8,9 +8,15 @@ aspirational.
    appended, so the record shows what was believed and when, not just the final answer.
 2. **A review is linked to a specific triage subject.** ``subject_triage_id`` is required, so a
    disposition can always be traced back to the exact assessment it judged.
-3. **Tier is a claim about who is qualified to decide**, not a severity. Tier A is machine-checkable
-   evidence mechanics, Tier B is guided review, Tier C needs genuine expertise, and Tier D records
-   that the evidence does not support a decision.
+3. **Tier is a claim about who is qualified to decide**, not a severity and not a priority. Tier
+   A is machine-checkable evidence mechanics, Tier B is guided review, Tier C needs genuine
+   expertise, and Tier D records that the evidence does not support a decision.
+
+   ``HumanReview.tier`` is the tier **actually conducted** - the level of human scrutiny the
+   reviewer really applied. ``TierAssignment.tier`` is the tier **required** for the subject. The
+   two are *reconciled* by :class:`TierReconciliation`, which records explicitly whether the review
+   met the assignment's requirement (see ``REQUIREMENT_SATISFIED_BY`` for the non-ordinal
+   relationship).
 """
 
 from __future__ import annotations
@@ -78,6 +84,59 @@ class MachineCheck(FrozenSchema):
     check_name: NonEmptyText
     passed: bool
     detail: NonEmptyText
+
+
+#: Which CONDUCTED tiers satisfy which REQUIRED tier. Deliberately an explicit map, not a scale.
+#:
+#: "Satisfies" here means: the review **actually conducted** (_conducted_) applied at least as much
+#: human scrutiny as the subject's assignment **required**. Among the qualification tiers the three
+#: that demand human judgment form a chain - ``A_MACHINE_CHECK < B_GUIDED_JUNIOR <
+#: C_EXPERT_JUDGMENT`` - in the sense that a reviewer qualified for a higher one is qualified for a
+#: lower one, so a review conducted at a higher tier satisfies a lower requirement.
+#:
+#: ``D_INSUFFICIENT_EVIDENCE`` is deliberately NOT part of that chain and it is its own case: it
+#: is a terminal *outcome* (the reviewer concludes there is not enough evidence to decide), not a
+#: level of expertise that is "more than" C. Consequently it never satisfies an A/B/C requirement
+#: - a case that required expert judgment is not resolved by someone declaring the evidence thin -
+#: and a D requirement is satisfied only by a review conducted at D: a D assignment says there is no
+#: conclusion to confirm, so the review that meets it is the one that records that insufficiency,
+#: not a staged A/B/C review pretending a conclusion exists. In both directions D is its own
+#: category, which is why the map is written out explicitly rather than inferred from an ordering.
+#:
+#: This is the single source of truth for the reconciliation in :class:`TierReconciliation`.
+#: Writing it here, in the schema module, keeps the relationship inspectable and reusable rather
+#: than buried in a builder that ``model_validate`` would bypass.
+_REQUIREMENT_SATISFIED_BY: dict[ReviewTier, frozenset[ReviewTier]] = {
+    ReviewTier.A_MACHINE_CHECK: frozenset(
+        {
+            ReviewTier.A_MACHINE_CHECK,
+            ReviewTier.B_GUIDED_JUNIOR,
+            ReviewTier.C_EXPERT_JUDGMENT,
+        }
+    ),
+    ReviewTier.B_GUIDED_JUNIOR: frozenset(
+        {
+            ReviewTier.B_GUIDED_JUNIOR,
+            ReviewTier.C_EXPERT_JUDGMENT,
+        }
+    ),
+    ReviewTier.C_EXPERT_JUDGMENT: frozenset({ReviewTier.C_EXPERT_JUDGMENT}),
+    ReviewTier.D_INSUFFICIENT_EVIDENCE: frozenset({ReviewTier.D_INSUFFICIENT_EVIDENCE}),
+}
+
+
+def tier_satisfies_requirement(
+    *, conducted: ReviewTier, required: ReviewTier
+) -> bool:
+    """Whether a review conducted at ``conducted`` satisfies the requirement of ``required``.
+
+    Pure and derived from ``_REQUIREMENT_SATISFIED_BY``. The meaningful tests read this function
+    directly, but :class:`TierReconciliation` carries the schema-level guarantee that the recorded
+    ``requirement_met`` fact always equals this value (see
+    :meth:`TierReconciliation.reconcile_tier`).
+    """
+
+    return conducted in _REQUIREMENT_SATISFIED_BY[required]
 
 
 class TierAssignment(FrozenSchema):
@@ -160,13 +219,21 @@ def review_id_for(
 
 
 class HumanReview(FrozenSchema):
-    """One reviewer's immutable disposition of one triage assessment."""
+    """One reviewer's immutable disposition of one triage assessment.
+
+    ``tier`` here is the tier **actually conducted** - the level of human scrutiny this reviewer
+    really applied to the subject. It is *not* the tier the subject required; that requirement lives
+    on the subject's :class:`TierAssignment` and is reconciled against this conducted tier by
+    :class:`TierReconciliation`. The two are intentionally separate so that an under-reviewed case
+    (conducted tier below required tier) is recorded as a discrepancy rather than silently accepted.
+    """
 
     schema_version: SchemaVersion = REVIEW_SCHEMA_VERSION
     review_id: UUID
     subject_triage_id: UUID
     subject_role: AssessorRole
     reviewer_ref: NonEmptyText
+    #: The tier actually conducted for this review. Not the tier the subject required.
     tier: ReviewTier
     decision: ReviewDecision
     notes: NonEmptyText
@@ -264,6 +331,83 @@ class ReviewHistory(FrozenSchema):
         return self
 
 
+class TierReconciliation(FrozenSchema):
+    """Pair the tier a subject *required* with the tier a review *actually conducted*, and
+    reconcile them.
+
+    This is the object that owns the data needed to answer issue #30: whether the review met
+    the assignment's tier requirement. Both halves must be present and reconciled here, on the
+    schema, because the alternative - a helper that knows the relationship but lives elsewhere -
+    is bypassed by ``model_validate`` when a durable record is read back. Enforcing the check in
+    this model validators means it runs on construction, ``model_validate`` of stored JSON, and
+    ``model_copy(update=...)`` alike.
+
+    Design choice: **recorded, not fatal.** An under-reviewed case is *not* a hard crash. It
+    produces a valid :class:`TierReconciliation` whose ``requirement_met`` is ``False`` and whose
+    ``unmet_requirement`` states exactly what was missing. That makes the discrepancy an
+    inspectable, immutable, serialized fact - impossible to lose by accident - while still allowing
+    the record to exist so a human can escalate a case that neither the cheapest tier nor the
+    assigned tier fully covered. ``requirement_met`` and ``unmet_requirement`` are stored fields
+    that the after-validator *always recomputes from the two tiers*, so a stored record claiming a
+    satisfied requirement for a genuinely under-reviewed case is corrected (or refused, where the
+    claimed value conflicts) on load rather than trusted. The relationship itself is the explicit
+    non-ordinal map in ``_REQUIREMENT_SATISFIED_BY`` - crucially, ``D_INSUFFICIENT_EVIDENCE`` is
+    its own case and never "more than" C.
+    """
+
+    schema_version: SchemaVersion = REVIEW_SCHEMA_VERSION
+    subject_triage_id: UUID
+    assignment: TierAssignment  # tier REQUIRED
+    review: HumanReview  # tier CONDUCTED
+    requirement_met: bool = False
+    unmet_requirement: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_subjects_match(self) -> TierReconciliation:
+        if self.review.subject_triage_id != self.subject_triage_id:
+            raise ValueError(
+                "the review being reconciled must belong to the reconciliation's subject "
+                f"(review subject {self.review.subject_triage_id} != "
+                f"subject {self.subject_triage_id})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def reconcile_tier(self) -> TierReconciliation:
+        """(Re)compute ``requirement_met`` and ``unmet_requirement`` from the two tiers.
+
+        Recomputed rather than trusted to close the recurring escape hatch: ``model_validate`` reads
+        whatever was serialized, so if ``requirement_met`` were stored as-is a forged record could
+        claim a satisfied requirement while the tiers say otherwise. Recomputation from the
+        authoritative tiers on every construction path makes the discrepancy impossible to lose.
+        """
+
+        required = self.assignment.tier
+        conducted = self.review.tier
+        met = tier_satisfies_requirement(conducted=conducted, required=required)
+        # If the caller explicitly supplied a value (direct construction, or a stored record read
+        # back through `model_validate`), it must agree with the authoritative relationship. A value
+        # that silently disagrees is a lie - e.g. a forged record claiming a met requirement for an
+        # under-reviewed case - and must be refused, not trusted. When the caller supplied nothing,
+        # the field holds its default and is simply recomputed.
+        if "requirement_met" in self.model_fields_set and self.requirement_met != met:
+            raise ValueError(
+                "recorded requirement_met contradicts the tier relationship: "
+                f"assignment required {required.value}, review conducted {conducted.value}, "
+                f"so requirement_met must be {met!r}"
+            )
+        self.__dict__["requirement_met"] = met
+        if met:
+            self.__dict__["unmet_requirement"] = None
+        else:
+            self.__dict__["unmet_requirement"] = (
+                f"this subject required a review at tier {required.value} "
+                f"(who is qualified to decide), but the review was conducted at tier "
+                f"{conducted.value}; the requirement was not met"
+            )
+        return self
+
+
 __all__ = [
     "REVIEW_HISTORY_SCHEMA_VERSION",
     "REVIEW_SCHEMA_VERSION",
@@ -274,6 +418,8 @@ __all__ = [
     "ReviewHistory",
     "ReviewTier",
     "TierAssignment",
+    "TierReconciliation",
     "review_id_for",
     "review_id_v1_for",
+    "tier_satisfies_requirement",
 ]
