@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if artifact is none %}
+<section class="panel artifact-unavailable" role="alert">
+  <div class="panel-kicker">Artifact unavailable</div>
+  <p class="panel-title">The UI could not read its source artifact.</p>
+  <p>
+    This is a statement about the instrument, not about the evidence: the artifact could not be
+    found or read. It is <strong>not</strong> the same as &ldquo;there is no evidence.&rdquo;
+  </p>
+  {% if artifact_error %}<p class="mono error-text">{{ artifact_error }}</p>{% endif %}
+</section>
+{% elif record is none %}
+<section class="panel record-unavailable" role="alert">
+  <div class="panel-kicker">Record unavailable</div>
+  <p class="panel-title">No tier assignment could be shown.</p>
+  {% if requested_spine_id %}
+  <p>The requested spine id <code class="mono">{{ requested_spine_id }}</code> is not present in
+     this artifact. This instrument will not silently substitute a different case, and it will not
+     compute a tier on its own.</p>
+  {% else %}
+  <p>The artifact carries no records, so there is no tier to describe yet.</p>
+  {% endif %}
+  <p><a href="/findings">Return to the findings tray</a>.</p>
+</section>
+{% else %}
+
+<section class="requirements">
+  <div class="section-heading">
+    <h2>Who is qualified to decide</h2>
+    <p class="section-sub">
+      A tier names the reviewer the bundle is routed to. It is an assertion about reviewer
+      qualification, <strong>not</strong> a severity and <strong>not</strong> a priority. The UI
+      never classifies; it renders the tier the deterministic classifier assigned.
+    </p>
+  </div>
+
+  <div class="panel tier-panel">
+    <div class="tier-emblem" aria-hidden="true"></div>
+    <div>
+      <p class="panel-kicker">Assigned tier</p>
+      <p class="tier-value">{{ record.tier_label }}</p>
+      <p class="tier-raw">raw value: <code class="mono">{{ record.tier }}</code></p>
+    </div>
+  </div>
+
+  <dl class="review-summary">
+    <div class="review-summary-item">
+      <dt>Machine checks</dt>
+      <dd>
+        {% if record.machine_checks_passed %}
+        <span class="pass-badge"><span class="pass-glyph" aria-hidden="true">&#10003;</span> all machine checks passed</span>
+        {% else %}
+        <span class="fail-badge"><span class="fail-glyph" aria-hidden="true">&#10007;</span> one or more machine checks failed</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Review count</dt>
+      <dd>{{ record.review_count }}</dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Evidence bundle</dt>
+      <dd><code class="mono wrap">{{ record.evidence_bundle_id }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Snapshot digest</dt>
+      <dd><code class="mono digest digest--trunc" title="{{ record.snapshot_digest }}">{{ record.snapshot_digest }}</code></dd>
+    </div>
+  </dl>
+
+  <div class="panel machine-note">
+    <div class="panel-kicker">What &ldquo;machine checks&rdquo; means</div>
+    <p>
+      Machine checks are deterministic checks of evidence mechanics (the pass state above), and tier
+      A consists only of them. The machine has already decided which human tier is qualified;
+      passing the checks is not a verdict and is not a severity. The single remaining human step is
+      the decision.
+    </p>
+  </div>
+
+  <ul class="bundle-actions" aria-label="Next steps for this record">
+    <li><a href="/provenance?spine_id={{ record.spine_id }}">Evidence</a></li>
+    <li><a href="/decision?spine_id={{ record.spine_id }}">Human decision</a></li>
+  </ul>
+</section>
+{% endif %}
+
+{% endblock %}

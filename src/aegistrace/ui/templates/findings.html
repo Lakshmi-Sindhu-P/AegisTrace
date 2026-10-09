@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if artifact is none %}
+<section class="panel artifact-unavailable" role="alert">
+  <div class="panel-kicker">Artifact unavailable</div>
+  <p class="panel-title">The UI could not read its source artifact.</p>
+  <p>
+    This is a statement about the instrument, not about the evidence. It means the artifact
+    could not be found or read, and it is <strong>not</strong> the same as &ldquo;there is no
+    evidence.&rdquo; An empty page would be a claim about the evidence; this page is a claim
+    about the plumbing.
+  </p>
+  {% if artifact_error %}<p class="mono error-text">{{ artifact_error }}</p>{% endif %}
+</section>
+{% else %}
+
+<section class="artifact-identity">
+  <div class="section-heading">
+    <h2>Investigation artifact</h2>
+    <p class="section-sub">The file this instrument was pointed at, and what it declares about itself.</p>
+  </div>
+  <dl class="summary">
+    <div class="summary-item">
+      <dt>Source path</dt>
+      <dd class="mono wrap">{{ artifact.source_path }}</dd>
+    </div>
+    <div class="summary-item">
+      <dt>Created at</dt>
+      <dd class="mono">{{ artifact.created_at }}</dd>
+    </div>
+    <div class="summary-item">
+      <dt>Freeze version</dt>
+      <dd class="mono">{{ artifact.freeze_version }}</dd>
+    </div>
+    <div class="summary-item">
+      <dt>Network egress</dt>
+      <dd class="mono">{{ artifact.network_egress }}</dd>
+    </div>
+    <div class="summary-item">
+      <dt>Providers configured</dt>
+      <dd>{% if artifact.providers_configured %}Yes{% else %}No — synthetic stand-in{% endif %}</dd>
+    </div>
+    <div class="summary-item">
+      <dt>Evidence bundles</dt>
+      <dd>{{ artifact.bundle_count }}</dd>
+    </div>
+    <div class="summary-item">
+      <dt>Records</dt>
+      <dd>{{ artifact.record_count }}</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="tray" aria-labelledby="tray-title">
+  <div class="section-heading">
+    <h2 id="tray-title">Evidence bundle tray</h2>
+    <p class="section-sub">
+      The unit of investigation is a bundle, not an alert row. Each card carries the identifiers a
+      chain-of-custody record exposes. Tiers are <em>who is qualified to decide</em>, never a
+      severity and never a score.
+    </p>
+  </div>
+
+  {% if artifact.records %}
+  <ol class="bundle-list">
+    {% for record in artifact.records %}
+    <li class="bundle-card">
+      <header class="bundle-head">
+        <span class="exhibit" aria-hidden="true">E{{ loop.index }}</span>
+        <div class="bundle-head-text">
+          <h3 class="bundle-title">{{ record.tier_label }}</h3>
+          <p class="bundle-meta mono">{{ record.spine_id }}</p>
+        </div>
+      </header>
+
+      <dl class="bundle-facts">
+        <div class="bundle-fact">
+          <dt>Tier</dt>
+          <dd><span class="value-tier">{{ record.tier_label }}</span></dd>
+        </div>
+        <div class="bundle-fact">
+          <dt>Machine checks</dt>
+          <dd>
+            {% if record.machine_checks_passed %}
+            <span class="pass-badge"><span class="pass-glyph" aria-hidden="true">&#10003;</span> passed</span>
+            {% else %}
+            <span class="fail-badge"><span class="fail-glyph" aria-hidden="true">&#10007;</span> failed</span>
+            {% endif %}
+          </dd>
+        </div>
+        <div class="bundle-fact">
+          <dt>Review count</dt>
+          <dd>{{ record.review_count }}</dd>
+        </div>
+        <div class="bundle-fact">
+          <dt>Snapshot digest</dt>
+          <dd><code class="mono digest digest--trunc" title="{{ record.snapshot_digest }}">{{ record.snapshot_digest }}</code></dd>
+        </div>
+      </dl>
+
+      <ul class="bundle-actions" aria-label="Detail views for exhibit {{ loop.index }}">
+        <li><a href="/provenance?spine_id={{ record.spine_id }}">Evidence</a></li>
+        <li><a href="/requirements?spine_id={{ record.spine_id }}">Review requirements</a></li>
+        <li><a href="/decision?spine_id={{ record.spine_id }}">Human decision</a></li>
+      </ul>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="panel empty-tray">
+    <div class="panel-kicker">Empty tray</div>
+    <p class="panel-title">No evidence bundles are available in this artifact.</p>
+    <p>
+      The artifact was readable but carries zero records. That is a true statement about this
+      artifact; it is not a claim that no evidence exists anywhere.
+    </p>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% endblock %}

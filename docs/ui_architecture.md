@@ -1,17 +1,41 @@
 # AegisTrace UI — Investigation Bench Architecture
 
 **Document status: APPROVED INTENT / DESIGN.**
-**Implementation status: PLANNED, NOT IMPLEMENTED.**
+**Implementation status: PARTIAL — see "Implementation status" below.**
 
 This document records the approved architectural and interaction direction for the AegisTrace
 local user interface. It names the navigation model, the major views, the component boundaries, and
 the data dependencies, grounding every statement in types and file paths that exist in the
-repository today. It is the design contract that implementation must satisfy; it is not a record of
-any implementation, because **no UI code exists yet**. The repository contains no `ui/`, `api/`, or
-`storage/` package (see the approved repository shape in `MEMORY.md`), no HTML/CSS/JS asset, and no
-FastAPI dependency. Everything in the "views", "navigation", and "component" sections below is
-proposed behaviour to be built; everything a view claims to read is a real schema in the repository
-now.
+repository today. It is the design contract that implementation must satisfy. Everything a view
+claims to read is a real schema in the repository.
+
+## Implementation status
+
+The shell, the five views and the loopback-only server are now **CURRENT / IMPLEMENTED**. What is
+implemented is the *instrument*, not the *data*: the UI reads one artifact the pipeline already
+writes and renders it honestly, including the states where it has nothing to show.
+
+| Element | Status |
+|---|---|
+| `src/aegistrace/ui/` package (read layer + app), `scripts/run_local_ui.py` | **CURRENT / IMPLEMENTED** |
+| The five views, the navigation and the loopback-only bind | **CURRENT / IMPLEMENTED** |
+| Static HTML/CSS, no JavaScript, no external asset | **CURRENT / IMPLEMENTED** |
+| Synthetic marking, artifact-unavailable state, "AI assessment not available" state | **CURRENT / IMPLEMENTED** |
+| A durable persistence/read layer (`storage/`) | **PLANNED, NOT IMPLEMENTED** — the UI reads a file |
+| The review-append write path | **PLANNED, NOT IMPLEMENTED** — the form refuses, see below |
+| Real (non-synthetic) assessment data for the comparison view | **BLOCKED_HUMAN** (provider freeze) |
+
+Two things the UI deliberately does **not** do yet, both stated on the pages themselves rather than
+left implicit:
+
+1. **It does not save a human decision.** Appending a `HumanReview` needs a durable store to append
+   to, and none exists. `POST /decision` therefore returns an explicit "NOT recorded" page. A form
+   that silently discarded a human decision would be the worst failure an evidence-custody tool
+   could have, so it refuses visibly instead.
+2. **It never invents an assessment pair.** The comparison view always reports "AI assessment not
+   available", because the artifact it reads carries no assessments and no real (non-synthetic) run
+   exists.
+
 
 What this document **is not**: it is not blanket approval to introduce new research claims, new
 governance rules, or new confidence measures. It approves an architecture and an interaction
@@ -204,11 +228,12 @@ records; binding is `127.0.0.1` only.
 The UI would want the following, but they do not exist in the repository today. The document names
 them so implementation never fabricates them:
 
-1. **A durable persistence/read layer.** `storage/`, `api/`, and `ui/` packages are absent
-   (`MEMORY.md` approved repository shape). There is no persistent application database (PostgreSQL
-   is deferred; Parquet/DuckDB are approved for later milestones). How the UI reads records from a
-   store — and the FastAPI dependency itself — is `PLANNED, NOT IMPLEMENTED`. Not determined from
-   the repository.
+1. **A durable persistence/read layer.** The `storage/` package is still absent and there is no
+   persistent application database (PostgreSQL is deferred; Parquet/DuckDB are approved for later
+   milestones). The UI therefore reads a **JSON artifact the pipeline already wrote**, via
+   `src/aegistrace/ui/artifacts.py`, rather than a store. A store-backed read layer remains
+   `PLANNED, NOT IMPLEMENTED`. The `ui/` package and the FastAPI dependency now exist as an optional
+   `ui` extra.
 2. **Real (non-synthetic) independent assessment data.** `configs/triage_provider_freeze.json` is
    `BLOCKED_HUMAN`; assessor independence is `NOT ESTABLISHED`; there is no LLM client or credential
    path, and no network-capable import exists in the provider boundary
@@ -264,12 +289,15 @@ and not a new governance rule.
 | Item | Status |
 |---|---|
 | This document | **APPROVED INTENT / DESIGN** (owner approval quoted in Section 1) |
-| Investigation Bench (C) as shell | **APPROVED INTENT / DESIGN** |
-| Chain of Custody (A) as evidence/provenance system | **APPROVED INTENT / DESIGN** |
-| Two Witnesses (B) as dedicated comparison view | **APPROVED INTENT / DESIGN** |
-| Five-step investigator workflow | **APPROVED INTENT / DESIGN** |
-| Every view, navigation, component boundary in Sections 3–5 | **PLANNED, NOT IMPLEMENTED** (proposed) |
-| FastAPI / static-HTML stack | **PLANNED, NOT IMPLEMENTED** (dependency not yet added) |
+| Investigation Bench (C) as shell | **CURRENT / IMPLEMENTED** (shell, navigation, five views) |
+| Chain of Custody (A) as evidence/provenance system | **CURRENT / IMPLEMENTED** (provenance view; reads one artifact) |
+| Two Witnesses (B) as dedicated comparison view | **CURRENT / IMPLEMENTED as an absence state** — the view exists and correctly reports "not available"; its real content is **BLOCKED_HUMAN** |
+| Five-step investigator workflow | **CURRENT / IMPLEMENTED** (navigation order) |
+| The five views, navigation, component boundaries in Sections 3–5 | **CURRENT / IMPLEMENTED** |
+| FastAPI / static-HTML stack | **CURRENT / IMPLEMENTED**, as an optional `ui` extra so the library never needs a server |
+| Loopback-only bind (`127.0.0.1`) | **CURRENT / IMPLEMENTED and VERIFIED** — no `--host` flag exists, and a live run served loopback while refusing the LAN address |
+| Durable persistence layer (`storage/`) | **PLANNED, NOT IMPLEMENTED** — the UI reads a JSON file |
+| The review-append write path | **PLANNED, NOT IMPLEMENTED** — `POST /decision` returns an explicit "NOT recorded" page |
 | Underlying schemas the views read | **CURRENT / IMPLEMENTED** (per `MEMORY.md`) |
 | Provider boundary, egress refusal, `synthetic` enforcement | **CURRENT / IMPLEMENTED and VALIDATED** (per `MEMORY.md` and `src/aegistrace/triage/provider.py`) |
 | Real non-synthetic triage run | **BLOCKED_HUMAN** / **NOT ESTABLISHED** (freeze artifact), so **PLANNED, NOT IMPLEMENTED** |

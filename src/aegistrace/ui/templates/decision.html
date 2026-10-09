@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if artifact is none %}
+<section class="panel artifact-unavailable" role="alert">
+  <div class="panel-kicker">Artifact unavailable</div>
+  <p class="panel-title">The UI could not read its source artifact.</p>
+  <p>
+    This is a statement about the instrument, not about the evidence: the artifact could not be
+    found or read. It is <strong>not</strong> the same as &ldquo;there is no evidence&rdquo; and
+    there is no human decision to make on a record that cannot be read.
+  </p>
+  {% if artifact_error %}<p class="mono error-text">{{ artifact_error }}</p>{% endif %}
+</section>
+{% elif record is none %}
+<section class="panel record-unavailable" role="alert">
+  <div class="panel-kicker">Record unavailable</div>
+  <p class="panel-title">No decision form can be shown.</p>
+  {% if requested_spine_id or submitted_spine_id %}
+  <p>The requested spine id <code class="mono">{{ submitted_spine_id or requested_spine_id }}</code>
+     is not present in this artifact, so no human decision can be made on it.</p>
+  {% else %}
+  <p>The artifact carries no records, so there is nothing to decide yet.</p>
+  {% endif %}
+  <p><a href="/findings">Return to the findings tray</a>.</p>
+</section>
+{% elif submitted %}
+<section class="decision-result" role="alert">
+  <div class="section-heading">
+    <h2>Human decision — not recorded</h2>
+    <p class="section-sub">Read this verbatim: your submission was received but <strong>was not saved</strong>.</p>
+  </div>
+  <div class="panel result-not-saved">
+    <div class="panel-kicker">No durable store to append to</div>
+    <p>
+      The write path of this instrument is deliberately not wired yet: appending a
+      <code>HumanReview</code> requires a durable, linear, append-only review history, and no
+      persistence layer exists. A form that silently discarded your decision would be the worst
+      possible failure for an evidence-custody tool, so this page acknowledges what you submitted
+      and states plainly that it was <strong>not recorded</strong>.
+    </p>
+  </div>
+  <dl class="review-summary">
+    <div class="review-summary-item">
+      <dt>Spine id</dt>
+      <dd><code class="mono wrap">{{ submitted_spine_id }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Decision (as submitted, not saved)</dt>
+      <dd><span class="value-tier">{{ submitted_decision }}</span></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Notes (as submitted, not saved)</dt>
+      <dd class="notes-echo">{{ submitted_notes | default("(none)") }}</dd>
+    </div>
+  </dl>
+  <ul class="bundle-actions">
+    <li><a href="/decision?spine_id={{ record.spine_id }}">Return to the decision form</a></li>
+    <li><a href="/findings">Findings tray</a></li>
+  </ul>
+</section>
+{% else %}
+
+<section class="decision">
+  <div class="section-heading">
+    <h2>Human decision</h2>
+    <p class="section-sub">
+      The only page that will ever write, and only at a human&rsquo;s direction. A submission appends
+      a decision to a single linear, <strong>append-only</strong> review history for this subject:
+      nothing is overwritten, and a correction is a <em>new</em> entry that points back to the one it
+      supersedes.
+    </p>
+  </div>
+
+  <dl class="review-summary">
+    <div class="review-summary-item">
+      <dt>Spine record</dt>
+      <dd><code class="mono wrap">{{ record.spine_id }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Evidence bundle</dt>
+      <dd><code class="mono wrap">{{ record.evidence_bundle_id }}</code></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Tier (who is qualified to decide)</dt>
+      <dd><span class="value-tier">{{ record.tier_label }}</span></dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Review count so far</dt>
+      <dd>{{ record.review_count }}</dd>
+    </div>
+    <div class="review-summary-item">
+      <dt>Snapshot digest</dt>
+      <dd><code class="mono digest digest--trunc" title="{{ record.snapshot_digest }}">{{ record.snapshot_digest }}</code></dd>
+    </div>
+  </dl>
+
+  <form class="decision-form" method="post" action="/decision" aria-describedby="form-help">
+    <input type="hidden" name="spine_id" value="{{ record.spine_id }}">
+
+    <div class="field">
+      <label for="decision">Decision</label>
+      <p class="field-help" id="decision-help">Choose one disposition for this bundle.</p>
+      <select id="decision" name="decision" class="mono" required aria-describedby="decision-help">
+        <option value="confirm">confirm — accept the assessment</option>
+        <option value="revise">revise — I disagree with part of it</option>
+        <option value="dismiss">dismiss — not a valid case</option>
+        <option value="escalate">escalate — hand on to a higher tier</option>
+        <option value="insufficient_evidence">insufficient evidence — stop; not enough to decide</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="notes">Notes <span class="optional">(optional)</span></label>
+      <p class="field-help" id="notes-help">Why you reached this decision. The free text is preserved verbatim.</p>
+      <textarea id="notes" name="notes" rows="5" aria-describedby="notes-help" placeholder="Reasoning, context, or open questions — recorded verbatim."></textarea>
+    </div>
+
+    <p id="form-help" class="form-help">
+      Submitting is <strong>append-only</strong>: it records a new decision, never edits a past one.
+      A correction is added as a new entry that supersedes the last, never an overwrite.
+    </p>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-cta">Submit human decision</button>
+    </div>
+  </form>
+
+  <div class="panel append-note">
+    <div class="panel-kicker">Append-only guarantee</div>
+    <p>
+      The spine and review-history schemas enforce a single linear chain: a later review must
+      supersede the most recent one, duplicate identifiers are rejected, and nothing is overwritten.
+      This form can only ever add to that chain; it can never edit or delete.
+    </p>
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}

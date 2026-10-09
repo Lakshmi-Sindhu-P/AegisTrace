@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if artifact is none %}
+<section class="panel artifact-unavailable" role="alert">
+  <div class="panel-kicker">Artifact unavailable</div>
+  <p class="panel-title">The UI could not read its source artifact.</p>
+  <p>
+    This is a statement about the instrument, not about the evidence: the artifact could not be
+    found or read. It is <strong>not</strong> the same as &ldquo;there is no evidence.&rdquo;
+  </p>
+  {% if artifact_error %}<p class="mono error-text">{{ artifact_error }}</p>{% endif %}
+</section>
+{% else %}
+
+<section class="comparison">
+  <div class="section-heading">
+    <h2>AI assessment comparison</h2>
+    <p class="section-sub">
+      Two mutually blind assessors, compared. Disagreement is a signal, not an error — but only when
+      a real assessment pair and a comparison exist. Nothing here is invented.
+    </p>
+  </div>
+
+  {% if record is none %}
+  <div class="panel record-unavailable" role="alert">
+    <div class="panel-kicker">Record unavailable</div>
+    {% if requested_spine_id %}
+    <p>The requested spine id <code class="mono">{{ requested_spine_id }}</code> is not present in
+       this artifact, so no comparison can be shown for it.</p>
+    {% else %}
+    <p>The artifact carries no records to compare yet.</p>
+    {% endif %}
+    <p><a href="/findings">Return to the findings tray</a>.</p>
+  </div>
+  {% endif %}
+
+  {% if comparison_available and record is not none %}
+  <div class="panel comparison-available">
+    <div class="panel-kicker">Comparison record present</div>
+    <p>
+      A comparison is available for this bundle. The two-witness detail (each assessor citing into
+      a shared evidence rail, with disagreement marked) is rendered from the application&rsquo;s
+      comparison surface over this record:
+    </p>
+    <ul class="simple-list">
+      <li>Spine record: <code class="mono wrap">{{ record.spine_id }}</code></li>
+      <li>Snapshot digest: <code class="mono digest digest--trunc" title="{{ record.snapshot_digest }}">{{ record.snapshot_digest }}</code></li>
+    </ul>
+  </div>
+  {% else %}
+  <div class="panel comparison-not-available">
+    <div class="panel-kicker">AI assessment not available</div>
+    <p class="panel-title">There is no admissible assessment pair to compare.</p>
+    <p>
+      This repository does not yet contain a real (non-synthetic) AI assessment run — the provider
+      freeze is blocked awaiting a human, and assessor independence is not established. A comparison
+      view must not invent two assessors, agreement scores, or a winner, so this page renders the
+      honest absence instead. When a real pair and comparison exist, they will appear here.
+    </p>
+    <p>
+      This is expected and is not a failure. The workflow proceeds without the comparison; it never
+      blocks the review-requirements or human-decision steps.
+    </p>
+    {% if record is not none %}
+    <p class="muted">Identifier for this record: <code class="mono">{{ record.spine_id }}</code></p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if record is not none %}
+  <ul class="bundle-actions" aria-label="Next steps for this record">
+    <li><a href="/provenance?spine_id={{ record.spine_id }}">Evidence</a></li>
+    <li><a href="/requirements?spine_id={{ record.spine_id }}">Review requirements</a></li>
+    <li><a href="/decision?spine_id={{ record.spine_id }}">Human decision</a></li>
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+
+{% endblock %}

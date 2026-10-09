@@ -1,0 +1,710 @@
+/* ==========================================================================
+   AegisTrace local UI — Investigation Bench
+   Research-first, provenance-first instrument panel. Read-only.
+   No JavaScript. System fonts only. All assets local.
+
+   Palette: warm paper neutrals; one deep copper accent reserved for the human
+   decision path. No severity colours, no dark "hacker" theme, no gradients for
+   decoration. Colour is never the only carrier of meaning: every status carries
+   text and a shape/glyph so a greyscale printout stays readable.
+   ========================================================================== */
+
+:root {
+  /* warm paper neutrals */
+  --paper: #faf7f2;
+  --surface: #ffffff;
+  --ink: #221e18;
+  --muted: #4d463b;
+  --faint: #6d6556;
+  --rule: #dcd4c4;
+  --rule-soft: #ece5d7;
+
+  /* the single accent — reserved for a human decision is required */
+  --accent: #a04a1f;
+  --accent-deep: #8a3d15;
+  --accent-wash: #f6e7d8;
+  --on-accent: #fffaf4;
+
+  /* status inks (always paired with text + glyph, greyscale-safe) */
+  --pass-ink: #1e5a30;
+  --pass-wash: #e8f1e6;
+  --fail-ink: #8a1c1c;
+  --fail-wash: #f7e6e4;
+
+  /* synthetic stand-in treatment (warm, prominent, never alarming) */
+  --syn-ink: #4a3208;
+  --syn-wash: #fbf0dc;
+  --syn-rule: #c99a4c;
+
+  --serif: Georgia, "Times New Roman", "Bitstream Charter", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Roboto Mono", "DejaVu Sans Mono", "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.55;
+  padding-bottom: 3rem;
+}
+
+/* Visible, keyboard-accessible focus on every interactive element. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+code,
+.mono,
+input,
+select {
+  font-family: var(--mono);
+}
+
+/* ==========================================================================
+   Skip link
+   ========================================================================== */
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--surface);
+  color: var(--accent-deep);
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  z-index: 10;
+}
+.skip-link:focus-visible {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+/* ==========================================================================
+   Masthead
+   ========================================================================== */
+
+.masthead {
+  padding: 2.2rem 1.4rem 1.4rem;
+  border-bottom: 1px solid var(--rule);
+  max-width: 76rem;
+  margin: 0 auto;
+}
+.masthead-overline {
+  margin: 0 0 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.masthead-title-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 1rem;
+}
+.masthead-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.9rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.masthead-tag {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* ==========================================================================
+   Workflow nav — the five steps, in the investigator's order
+   ========================================================================== */
+
+.workflow {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0.9rem 1.4rem;
+}
+.workflow-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+.workflow-step {
+  margin: 0;
+}
+.workflow-link {
+  display: inline-block;
+  padding: 0.42rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.workflow-link:hover {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+.workflow-link--current {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  cursor: default;
+}
+
+/* ==========================================================================
+   Synthetic stand-in banner — persistent, text + shape, never dismissible
+   ========================================================================== */
+
+.synthetic-banner {
+  max-width: 76rem;
+  margin: 1rem auto 0;
+  padding: 0.9rem 1.2rem;
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+  background: var(--syn-wash);
+  border: 2px solid var(--syn-rule);
+  border-left-width: 8px;
+  border-radius: 4px;
+}
+.syn-marker {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  border: 3px solid var(--syn-ink);
+  transform: rotate(45deg);
+  position: relative;
+}
+.syn-marker::after {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  background: var(--syn-ink);
+}
+.synthetic-banner-body p {
+  margin: 0;
+}
+.synthetic-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.9rem;
+  color: var(--syn-ink);
+}
+.synthetic-warning {
+  margin-top: 0.3rem;
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   Page shell
+   ========================================================================== */
+
+.page {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1.6rem 1.4rem 3rem;
+}
+
+.colophon {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1rem 1.4rem 2rem;
+  border-top: 1px solid var(--rule);
+}
+.colophon-line {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--faint);
+}
+
+/* ==========================================================================
+   Typographic helpers
+   ========================================================================== */
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92em;
+}
+.wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.error-text {
+  color: var(--fail-ink);
+  background: var(--fail-wash);
+  border: 1px solid var(--fail-ink);
+  padding: 0.6rem 0.8rem;
+  border-radius: 4px;
+}
+.muted {
+  color: var(--muted);
+}
+
+/* digests and long identifiers: never break the layout */
+.digest--full {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  word-spacing: 0;
+}
+.digest--trunc {
+  display: inline-block;
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  direction: ltr;
+}
+
+/* ==========================================================================
+   Section headings
+   ========================================================================== */
+
+.section-heading {
+  margin: 0 0 1.1rem;
+}
+.section-heading h2 {
+  margin: 0 0 0.3rem;
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  color: var(--ink);
+}
+.section-sub {
+  margin: 0;
+  color: var(--muted);
+  max-width: 60rem;
+}
+
+/* ==========================================================================
+   Panels (generic surfaces) + explicit empty / unavailable states
+   ========================================================================== */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 1.1rem 1.2rem;
+  margin: 0 0 1.2rem;
+}
+.panel-kicker {
+  margin: 0 0 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.panel-title {
+  margin: 0 0 0.4rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.panel p {
+  margin: 0.35rem 0;
+}
+
+.artifact-unavailable,
+.record-unavailable,
+.empty-tray,
+.comparison-not-available {
+  border-left-width: 8px;
+}
+.artifact-unavailable,
+.record-unavailable {
+  border-left-color: var(--fail-ink);
+}
+.empty-tray,
+.comparison-not-available {
+  border-left-color: var(--faint);
+}
+
+/* ==========================================================================
+   Summary definition lists (artifact identity and record facts)
+   ========================================================================== */
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.2rem 2.4rem;
+  margin: 0 0 1.6rem;
+  padding: 1.1rem 1.2rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+.summary--narrow {
+  max-width: 46rem;
+}
+.summary-item,
+.bundle-fact,
+.review-summary-item {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.summary-item:last-child,
+.bundle-fact:last-child,
+.review-summary-item:last-child {
+  border-bottom: 0;
+}
+.summary dt,
+.bundle-fact dt,
+.review-summary-item dt {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  margin: 0 0 0.15rem;
+}
+.summary dd,
+.bundle-fact dd,
+.review-summary-item dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   Findings — the evidence bundle tray
+   ========================================================================== */
+
+.bundle-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1.1rem;
+}
+.bundle-card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--rule);
+  border-radius: 6px;
+  padding: 1rem 1.1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+}
+.bundle-head {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  margin-bottom: 0.7rem;
+}
+.exhibit {
+  flex: 0 0 auto;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.bundle-head-text {
+  min-width: 0;
+}
+.bundle-title {
+  margin: 0 0 0.15rem;
+  font-size: 1.02rem;
+  line-height: 1.3;
+}
+.bundle-meta {
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+.bundle-facts {
+  margin: 0;
+}
+.bundle-facts .bundle-fact {
+  margin: 0;
+}
+.value-tier {
+  font-weight: 600;
+}
+.bundle-actions {
+  list-style: none;
+  margin: 0.9rem 0 0;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid var(--rule-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.1rem;
+}
+.bundle-actions a {
+  color: var(--accent-deep);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bundle-actions a:hover {
+  color: var(--ink);
+}
+
+/* pass / fail: always text + glyph + colour */
+.pass-badge,
+.fail-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+.pass-glyph,
+.fail-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.pass-badge {
+  color: var(--pass-ink);
+}
+.pass-glyph {
+  background: var(--pass-wash);
+  border: 1.5px solid var(--pass-ink);
+}
+.fail-badge {
+  color: var(--fail-ink);
+}
+.fail-glyph {
+  background: var(--fail-wash);
+  border: 1.5px solid var(--fail-ink);
+}
+
+/* ==========================================================================
+   Provenance — the chain-of-custody spine
+   ========================================================================== */
+
+.spine {
+  list-style: none;
+  margin: 1.4rem 0 1.4rem;
+  padding: 0;
+  border-left: 2px solid var(--rule);
+}
+.spine-node {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  padding: 0 0 1.4rem 0;
+}
+.spine-node:last-child {
+  padding-bottom: 0;
+}
+.spine-exhibit {
+  position: absolute;
+  left: -1.22rem;
+  top: 0;
+  width: 2.3rem;
+  height: 2.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+.spine-body {
+  margin-left: 1.6rem;
+  min-width: 0;
+}
+.spine-role {
+  margin: 0 0 0.3rem;
+  font-weight: 600;
+}
+.spine-body .digest {
+  display: block;
+  padding: 0.45rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   Requirements — who is qualified to decide
+   ========================================================================== */
+
+.tier-panel {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.tier-emblem {
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  position: relative;
+  margin-top: 0.2rem;
+}
+.tier-emblem::after {
+  content: "";
+  position: absolute;
+  inset: 35%;
+  background: var(--accent);
+  border-radius: 50%;
+}
+.tier-value {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.tier-raw {
+  margin: 0.2rem 0 0;
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+.tier-panel .panel-kicker {
+  color: var(--accent-deep);
+}
+.review-summary {
+  margin: 0 0 1.2rem;
+  padding: 1.1rem 1.2rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+.review-summary dd {
+  margin: 0;
+}
+.notes-echo {
+  white-space: pre-wrap;
+}
+
+/* ==========================================================================
+   Decision — the human-decision surface
+   ========================================================================== */
+
+.decision-form {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--accent);
+  border-radius: 6px;
+  padding: 1.3rem 1.3rem 1.5rem;
+  margin: 1.2rem 0;
+}
+.field {
+  margin: 0 0 1.1rem;
+}
+.field label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+.optional {
+  font-weight: 400;
+  color: var(--faint);
+}
+.field-help,
+.form-help {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+select,
+textarea {
+  width: 100%;
+  max-width: 46rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+textarea {
+  resize: vertical;
+}
+.form-help {
+  margin-top: 0.9rem;
+}
+.form-actions {
+  margin-top: 1.2rem;
+}
+.btn-cta {
+  display: inline-block;
+  padding: 0.7rem 1.4rem;
+  border: 2px solid var(--accent);
+  border-radius: 5px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-cta:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+.append-note,
+.result-not-saved {
+  border-left-width: 8px;
+  border-left-color: var(--faint);
+}
+
+.simple-list {
+  margin: 0.6rem 0 0;
+  padding-left: 1.2rem;
+}
+
+/* ==========================================================================
+   Reduced-motion not required (no animation) — nothing conveys state by motion.
+   ========================================================================== */
+
+@media (max-width: 520px) {
+  .masthead {
+    padding-top: 1.6rem;
+  }
+  .masthead-title {
+    font-size: 1.6rem;
+  }
+  .bundle-list {
+    grid-template-columns: 1fr;
+  }
+  .workflow-link {
+    font-size: 0.84rem;
+  }
+}

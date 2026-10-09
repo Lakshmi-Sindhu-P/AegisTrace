@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if artifact is none %}
+<section class="panel artifact-unavailable" role="alert">
+  <div class="panel-kicker">Artifact unavailable</div>
+  <p class="panel-title">The UI could not read its source artifact.</p>
+  <p>
+    This is a statement about the instrument, not about the evidence: the artifact could not be
+    found or read. It is <strong>not</strong> the same as &ldquo;there is no evidence.&rdquo;
+  </p>
+  {% if artifact_error %}<p class="mono error-text">{{ artifact_error }}</p>{% endif %}
+</section>
+{% elif record is none %}
+<section class="panel record-unavailable" role="alert">
+  <div class="panel-kicker">Record unavailable</div>
+  <p class="panel-title">No evidence record could be shown.</p>
+  {% if requested_spine_id %}
+  <p>The requested spine id <code class="mono">{{ requested_spine_id }}</code> is not present in
+     this artifact. This instrument will not silently substitute a different case.</p>
+  {% else %}
+  <p>The artifact carries no records, so there is no chain of custody to inspect yet.</p>
+  {% endif %}
+  <p><a href="/findings">Return to the findings tray</a>.</p>
+</section>
+{% else %}
+
+<section class="provenance">
+  <div class="section-heading">
+    <h2>Chain of custody — evidence bundle {{ record.evidence_bundle_id }}</h2>
+    <p class="section-sub">
+      The identifiers this record carries, read as ancestry down to the snapshot digest. A missing
+      link is a labelled gap, never blank space. Tiers and passes are <em>who is qualified to
+      decide</em>, never severity and never a score.
+    </p>
+  </div>
+
+  <dl class="summary summary--narrow">
+    <div class="summary-item">
+      <dt>Tier (who may decide)</dt>
+      <dd><span class="value-tier">{{ record.tier_label }}</span></dd>
+    </div>
+    <div class="summary-item">
+      <dt>Machine checks</dt>
+      <dd>
+        {% if record.machine_checks_passed %}
+        <span class="pass-badge"><span class="pass-glyph" aria-hidden="true">&#10003;</span> passed</span>
+        {% else %}
+        <span class="fail-badge"><span class="fail-glyph" aria-hidden="true">&#10007;</span> failed</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="summary-item">
+      <dt>Review count</dt>
+      <dd>{{ record.review_count }}</dd>
+    </div>
+  </dl>
+
+  <ol class="spine">
+    <li class="spine-node">
+      <span class="spine-exhibit" aria-hidden="true">E1</span>
+      <div class="spine-body">
+        <p class="spine-role">Snapshot — the machine source, by SHA-256 digest. Always visible.</p>
+        <code class="mono digest digest--full" title="{{ record.snapshot_digest }}">{{ record.snapshot_digest }}</code>
+      </div>
+    </li>
+    <li class="spine-node">
+      <span class="spine-exhibit" aria-hidden="true">E2</span>
+      <div class="spine-body">
+        <p class="spine-role">Evidence bundle</p>
+        <code class="mono wrap">{{ record.evidence_bundle_id }}</code>
+      </div>
+    </li>
+    <li class="spine-node">
+      <span class="spine-exhibit" aria-hidden="true">E3</span>
+      <div class="spine-body">
+        <p class="spine-role">Finding</p>
+        <code class="mono wrap">{{ record.finding_id }}</code>
+      </div>
+    </li>
+    <li class="spine-node">
+      <span class="spine-exhibit" aria-hidden="true">E4</span>
+      <div class="spine-body">
+        <p class="spine-role">Spine record — the review history attaches here</p>
+        <code class="mono wrap">{{ record.spine_id }}</code>
+      </div>
+    </li>
+  </ol>
+
+  <div class="panel chain-note">
+    <div class="panel-kicker">Reading limits</div>
+    <p>
+      This artifact exposes only these identifiers. Deeper ancestry down to raw security events and
+      transformed records is <strong>not established</strong> in this artifact and is shown here as
+      absent rather than completed. Nothing beyond the identifiers above is implied as a chain.
+    </p>
+  </div>
+
+  <ul class="bundle-actions" aria-label="Next steps for this record">
+    <li><a href="/findings">Findings tray</a></li>
+    <li><a href="/comparison?spine_id={{ record.spine_id }}">AI comparison</a></li>
+    <li><a href="/decision?spine_id={{ record.spine_id }}">Human decision</a></li>
+  </ul>
+</section>
+{% endif %}
+
+{% endblock %}

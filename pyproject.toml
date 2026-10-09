@@ -24,8 +24,20 @@ dependencies = [
     "scikit-learn>=1.6,<2",
 ]
 
+#: The local UI is an OPTIONAL extra, deliberately. The research library must never depend on a web
+#: server: detection, triage, tiering and review all work headless, and a reader who only wants the
+#: library should not install a server to get it. `pip install -e '.[ui]'`.
+[project.optional-dependencies]
+ui = [
+  "fastapi>=0.115,<1",
+  "jinja2>=3.1,<4",
+  "python-multipart>=0.0.9,<1",
+  "uvicorn>=0.30,<1",
+]
+
 [dependency-groups]
 dev = [
+  "httpx>=0.27,<1",
   "mypy>=1.15,<2",
   "pytest>=8.3,<10",
   "pytest-cov>=6,<8",
@@ -67,7 +79,7 @@ pretty = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = ["pyarrow", "pyarrow.*", "sklearn", "sklearn.*"]
+module = ["pyarrow", "pyarrow.*", "sklearn", "sklearn.*", "fastapi", "fastapi.*", "starlette", "starlette.*", "uvicorn", "uvicorn.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }} · AegisTrace</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to investigation content</a>
+
+  <header class="masthead">
+    <p class="masthead-overline">AegisTrace · local investigation instrument</p>
+    <div class="masthead-title-group">
+      <h1 class="masthead-title">{{ page_title }}</h1>
+      <p class="masthead-tag">research-first · provenance-first · read-only</p>
+    </div>
+  </header>
+
+  {% if nav_items %}
+  <nav class="workflow" aria-label="Investigation workflow">
+    <ol class="workflow-list">
+      {% for item in nav_items %}
+      <li class="workflow-step{% if item.current %} workflow-step--current{% endif %}">
+        {% if item.current %}
+        <span class="workflow-link workflow-link--current" aria-current="page">{{ item.label }}</span>
+        {% else %}
+        <a class="workflow-link" href="{{ item.href }}">{{ item.label }}</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </nav>
+  {% endif %}
+
+  {# Persistent, non-dismissible, text-and-shape synthetic notice. Rendered on every page whose
+     artifact declares itself synthetic, as a banner -- never a tooltip, never colour-only. #}
+  {% if artifact is not none and artifact.synthetic %}
+  <aside class="synthetic-banner" role="note" aria-label="Synthetic stand-in notice">
+    <span class="syn-marker" aria-hidden="true"></span>
+    <div class="synthetic-banner-body">
+      <p class="synthetic-title">Synthetic offline stand-in — NOT an experimental result</p>
+      {% if artifact.warning %}
+      <p class="synthetic-warning">{{ artifact.warning }}</p>
+      {% endif %}
+    </div>
+  </aside>
+  {% endif %}
+
+  <main id="main" class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="colophon">
+    <p class="colophon-line">AegisTrace local instrument · served on 127.0.0.1 · assets local · JavaScript not required</p>
+  </footer>
+</body>
+</html>
