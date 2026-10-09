@@ -42,6 +42,20 @@ def _load(path: Path) -> Any:
         return json.load(handle)
 
 
+def _captures(artifact: dict[str, Any], artifact_name: str) -> list[dict[str, Any]]:
+    """Return an artifact's captures, refusing to verify an empty set.
+
+    Most tests here accumulate violations inside a loop over ``captures`` and then assert the
+    accumulator is empty. On an empty capture list that assertion holds without examining anything,
+    so a truncated or empty artifact would be reported as fully self-consistent - the project's
+    recurring defect class, in the test suite. The guard makes the scope of each claim explicit.
+    """
+
+    captures = artifact["captures"]
+    assert captures, f"{artifact_name} has no captures to verify"
+    return captures
+
+
 def _stage1_by_policy(capture: dict[str, Any]) -> dict[str, dict[int, dict[str, Any]]]:
     """Map policy name -> budget -> raw budget record."""
 
@@ -106,6 +120,7 @@ def test_stage1_no_uncertainty_policy_beats_model_score_on_true_positives() -> N
     """Re-derive the stage 1 headline from raw budgets[] only."""
 
     artifact = _load(REPLAY_PATH)
+    assert _captures(artifact, "replay artifact")
     violations: list[tuple[str, int, int, int]] = []
     for capture in artifact["captures"]:
         by_policy = _stage1_by_policy(capture)
@@ -155,6 +170,7 @@ def test_stage2_paired_uncertainty_wins_total_is_zero() -> None:
     """Total paired settings across captures where uncertainty strictly beats model_score is 0."""
 
     artifact = _load(SIMULATION_PATH)
+    assert _captures(artifact, "simulation artifact")
     beats: list[tuple[str, float, int]] = []
     for capture in artifact["captures"]:
         by_setting = _stage2_by_setting(capture)
@@ -172,6 +188,7 @@ def test_stage2_headline_block_agrees_with_raw_outcomes() -> None:
     """The artifact's own headline block must match facts recomputed from outcomes[]."""
 
     artifact = _load(SIMULATION_PATH)
+    assert _captures(artifact, "simulation artifact")
     headline = artifact["headline"]
     by_scenario = {entry["scenario_id"]: entry for entry in headline["per_capture"]}
 
@@ -212,6 +229,7 @@ def test_stage2_outcome_arithmetic_is_internally_consistent() -> None:
     """false_escalations, false_escalation_rate, reviewer_load and missed_detections."""
 
     artifact = _load(SIMULATION_PATH)
+    assert _captures(artifact, "simulation artifact")
     problems: list[str] = []
     for capture in artifact["captures"]:
         malicious_rows = capture["malicious_rows"]
@@ -247,6 +265,7 @@ def test_stage2_escalation_totals_are_consistent() -> None:
     """escalations == true_escalations + false_escalations for every outcome."""
 
     artifact = _load(SIMULATION_PATH)
+    assert _captures(artifact, "simulation artifact")
     problems = [
         f"{capture['scenario_id']} {outcome['policy']}: "
         f"{outcome['escalations']} != {outcome['true_escalations']} + "
@@ -301,6 +320,7 @@ def test_no_capture_claims_more_true_positives_than_malicious_rows() -> None:
     """No artifact may report more hits than the capture has malicious rows."""
 
     replay = _load(REPLAY_PATH)
+    assert _captures(replay, "replay artifact")
     problems = [
         f"replay {capture['scenario_id']} {policy['policy']} budget {record['budget']}: "
         f"{record['true_positives']} > {capture['malicious_rows']}"
@@ -335,6 +355,7 @@ def test_stage1_policy_coverage_is_complete() -> None:
     """Every replay capture carries all four routing policies at every budget."""
 
     artifact = _load(REPLAY_PATH)
+    assert _captures(artifact, "replay artifact")
     for capture in artifact["captures"]:
         by_policy = _stage1_by_policy(capture)
         assert set(by_policy) == set(STAGE1_POLICIES), (
@@ -358,6 +379,7 @@ def test_stage2_policy_coverage_is_complete_and_drops_are_documented() -> None:
     """
 
     artifact = _load(SIMULATION_PATH)
+    assert _captures(artifact, "simulation artifact")
     expected = tuple(artifact["sweep_axes"]["routing_policies"])
     declared_exclusions = artifact["sweep_axes"].get("oracle_excluded", "")
     for capture in artifact["captures"]:
