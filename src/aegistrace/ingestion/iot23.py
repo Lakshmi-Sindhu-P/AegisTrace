@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import ipaddress
 import json
+import sys
 from collections import Counter
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -16,7 +17,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import ValidationError
 
-from aegistrace.ingestion.report import IngestionReport, ParseIssue, ParseResult
+from aegistrace.ingestion.report import (
+    IngestionReport,
+    ParseIssue,
+    ParseResult,
+    ingestion_exit_code,
+    ingestion_exit_reason,
+)
 from aegistrace.schemas.events import (
     EventProvenance,
     GroundTruthLabel,
@@ -538,7 +545,10 @@ def main() -> int:
             sort_keys=True,
         )
     )
-    return 2 if args.fail_on_rejects and result.report.rejected_rows else 0
+    reason = ingestion_exit_reason(result.report, fail_on_rejects=args.fail_on_rejects)
+    if reason is not None:
+        print(f"ingest_iot23: refusing to report success: {reason}", file=sys.stderr)
+    return ingestion_exit_code(result.report, fail_on_rejects=args.fail_on_rejects)
 
 
 if __name__ == "__main__":

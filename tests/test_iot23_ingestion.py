@@ -154,3 +154,65 @@ def test_missing_values_are_normalized(bad_value: str, tmp_path: Path) -> None:
 
     assert len(result.events) == 3
     assert result.report.missing_counts["service"] >= 1
+
+
+# --- Issue #37: a zero-accept ingest must not report success --------------------------------
+
+
+def test_issue_37_empty_but_valid_source_exits_non_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Same rule as the CTU-13 adapter, reached through a different parser.
+
+    Both CLIs share one definition of the rule (`ingestion.ingestion_exit_reason`), so this test
+    exists to prove the IoT-23 path actually calls it rather than to re-specify the rule.
+    """
+
+    header_only = tmp_path / "conn-header-only.log"
+    header_only.write_text("#separator \\x09\n#fields\ta\tb\n")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ingest_iot23",
+            "--input",
+            str(header_only),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--ingested-at",
+            INGESTED_AT.isoformat(),
+            "--raw-reference",
+            "data/raw/iot23/CTU-IoT-Malware-Capture-34-1/bro/conn.log.labeled",
+        ],
+    )
+    exit_code = iot23.main()
+
+    captured = capsys.readouterr()
+    assert exit_code != 0, "a zero-row ingest must not exit 0"
+    assert "accepted_rows" in captured.out
+    assert "no accepted rows" in captured.err
+    assert (tmp_path / "out" / "quality_report.json").exists()
+
+
+def test_issue_37_a_successful_ingest_still_exits_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control, without which the test above would pass for an always-failing CLI."""
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ingest_iot23",
+            "--input",
+            str(FIXTURE_PATH),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--ingested-at",
+            INGESTED_AT.isoformat(),
+            "--raw-reference",
+            "data/raw/iot23/CTU-IoT-Malware-Capture-34-1/bro/conn.log.labeled",
+        ],
+    )
+    assert iot23.main() == 0

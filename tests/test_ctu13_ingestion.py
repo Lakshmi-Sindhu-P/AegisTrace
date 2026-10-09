@@ -235,3 +235,123 @@ def test_issue_39_valid_header_with_no_data_rows_is_self_consistent(tmp_path: Pa
 
     assert (report.rows_seen, report.accepted_rows, report.rejected_rows) == (0, 0, 0)
     assert report.accepted_rows + report.rejected_rows == report.rows_seen
+
+
+# --- Issue #37: a zero-accept ingest must not report success --------------------------------
+
+
+def _cli_argv(source: Path, output_dir: Path, *extra: str) -> list[str]:
+    return [
+        "ingest_ctu13",
+        "--input",
+        str(source),
+        "--output-dir",
+        str(output_dir),
+        "--ingested-at",
+        INGESTED_AT.isoformat(),
+        "--report-generated-at",
+        INGESTED_AT.isoformat(),
+        "--raw-reference",
+        "data/raw/ctu13/CTU-Malware-Capture-Botnet-52/capture20110818-2.binetflow",
+        *extra,
+    ]
+
+
+def test_issue_37_empty_but_valid_source_exits_non_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An empty-but-valid input used to report a clean success over zero rows.
+
+    The header parses, no row is rejected, and the run looked identical to a real ingest. It is
+    now refused, and the refusal is NOT gated on `--fail-on-rejects`: no flag should be needed to
+    notice that nothing was ingested.
+    """
+
+    header_only = tmp_path / "header-only.binetflow"
+    header_only.write_text(FIXTURE_PATH.read_text().splitlines()[0] + "\n")
+
+    monkeypatch.setattr(sys, "argv", _cli_argv(header_only, tmp_path / "out"))
+    exit_code = ctu13.main()
+
+    captured = capsys.readouterr()
+    assert exit_code != 0, "a zero-row ingest must not exit 0"
+    assert "accepted_rows" in captured.out, "the machine-readable summary is still emitted"
+    assert "no accepted rows" in captured.err, "the refusal must say why"
+    # Diagnostics are preserved: the run still wrote its report and manifest.
+    assert (tmp_path / "out" / "quality_report.json").exists()
+    assert (tmp_path / "out" / "dataset_manifest.json").exists()
+
+
+def test_issue_37_all_rows_rejected_exits_non_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The other zero-accept route: rows were present but every one was rejected."""
+
+    source = tmp_path / "all-bad.binetflow"
+    source.write_text(FIXTURE_PATH.read_text().splitlines()[0] + "\nnot-a-valid-row\n")
+
+    monkeypatch.setattr(sys, "argv", _cli_argv(source, tmp_path / "out"))
+    exit_code = ctu13.main()
+
+    captured = capsys.readouterr()
+    assert exit_code != 0
+    assert "no accepted rows" in captured.err
+    # The rejection reason survives, which is what makes the failure diagnosable.
+    assert "rejected" in captured.err
+
+
+def test_issue_37_a_successful_ingest_still_exits_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control, without which the tests above would pass for any always-failing CLI."""
+
+    monkeypatch.setattr(sys, "argv", _cli_argv(FIXTURE_PATH, tmp_path / "out"))
+    assert ctu13.main() == 0
+
+
+def test_issue_37_the_rule_is_not_gated_on_fail_on_rejects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run that ACCEPTED rows and rejected some is unaffected without the flag.
+
+    This is the boundary the fix must not cross: rejecting some rows while accepting others is a
+    normal, reportable outcome, not a failed ingest.
+    """
+
+    source = tmp_path / "mixed.binetflow"
+    lines = FIXTURE_PATH.read_text().splitlines()
+    source.write_text("\n".join([lines[0], *lines[1:3], "not-a-valid-row"]) + "\n")
+
+    monkeypatch.setattr(sys, "argv", _cli_argv(source, tmp_path / "out"))
+    assert ctu13.main() == 0, "accepted rows exist, so the ingest succeeded"
+
+    # ... and the flag still turns the same run into a failure.
+    monkeypatch.setattr(
+        sys, "argv", _cli_argv(source, tmp_path / "out2", "--fail-on-rejects")
+    )
+    assert ctu13.main() != 0
+
+
+def test_issue_37_the_shared_rule_is_one_definition() -> None:
+    """The rule lives in exactly one place, so the two adapters cannot drift apart.
+
+    A duplicate guard with a duplicated message is what made a falsification test vacuous
+    elsewhere in this codebase, so the two CLIs are checked to delegate rather than restate.
+    """
+
+    from aegistrace.ingestion.report import ingestion_exit_code, ingestion_exit_reason
+
+    report = parse_ctu13_binetflow(
+        FIXTURE_PATH, ingested_at=INGESTED_AT, report_generated_at=INGESTED_AT
+    ).report
+    assert report.accepted_rows > 0
+
+    # A successful run: no reason, exit 0.
+    assert ingestion_exit_reason(report, fail_on_rejects=True) is None
+    assert ingestion_exit_code(report, fail_on_rejects=True) == 0
+
+    # Zero accepted rows: a reason and a non-zero code, regardless of the flag.
+    empty = report.model_copy(update={"accepted_rows": 0, "rejected_rows": 0})
+    for flag in (True, False):
+        assert ingestion_exit_reason(empty, fail_on_rejects=flag) is not None
+        assert ingestion_exit_code(empty, fail_on_rejects=flag) != 0

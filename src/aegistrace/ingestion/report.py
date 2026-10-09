@@ -78,3 +78,46 @@ class ParseResult(FrozenSchema):
 
     events: tuple[SecurityEvent, ...]
     report: IngestionReport
+
+
+#: Exit code for an ingestion run that produced no usable canonical events.
+INGESTION_FAILURE_EXIT_CODE = 2
+
+
+def ingestion_exit_reason(report: IngestionReport, *, fail_on_rejects: bool) -> str | None:
+    """Return why an ingestion run must exit non-zero, or ``None`` if it succeeded.
+
+    A run that accepts ZERO data rows is never a success, whether the source was empty or every row
+    was rejected: there is nothing downstream to detect over, and exiting 0 lets an empty-but-valid
+    input masquerade as a completed ingest (issue #37). This is deliberately NOT gated on
+    ``fail_on_rejects``, because no flag should be needed to notice that nothing was ingested.
+
+    This is NOT the same as a successful ingest followed by zero detections or zero filter matches.
+    Ingestion succeeded in that case - canonical events exist - and this function says nothing
+    about it.
+
+    The reason is returned rather than just a code so the CLI can print it: a non-zero exit with no
+    explanation is only marginally better than a silent success. Defined once and shared by both
+    parsers, so the two CLIs cannot drift apart and the rule has exactly one place to test.
+    """
+
+    if report.accepted_rows == 0:
+        if report.rejected_rows:
+            return (
+                f"no accepted rows: all {report.rows_seen} data row(s) read were rejected "
+                f"({report.rejected_rows} recorded issue(s))"
+            )
+        return f"no accepted rows: the source yielded no data rows (rows_seen={report.rows_seen})"
+    if fail_on_rejects and report.rejected_rows:
+        return f"{report.rejected_rows} recorded issue(s) and --fail-on-rejects is set"
+    return None
+
+
+def ingestion_exit_code(report: IngestionReport, *, fail_on_rejects: bool) -> int:
+    """Return the process exit code for an ingestion run; 0 only when rows were accepted."""
+
+    return (
+        INGESTION_FAILURE_EXIT_CODE
+        if ingestion_exit_reason(report, fail_on_rejects=fail_on_rejects) is not None
+        else 0
+    )
